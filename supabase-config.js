@@ -9,7 +9,7 @@
 // Es el UNICO archivo que hay que editar para conectar todo.
 // ============================================================
 
-const SUPABASE_URL = "https://qipsmmbhmurtpndvmwar.supabase.co/rest/v1/";
+const SUPABASE_URL = "https://qipsmmbhmurtpndvmwar.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFpcHNtbWJobXVydHBuZHZtd2FyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxMzQzOTYsImV4cCI6MjEwMTcxMDM5Nn0.2JGACCDIFPRb8VSqJe8ss9ALImjYOZFzpQ1x7b3PTAM";
 
 // PIN de 4 digitos para habilitar los botones de control.
