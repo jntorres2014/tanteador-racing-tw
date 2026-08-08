@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#0b1320" />
+<title>Control — Tanteador Racing Club TW</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    margin: 0; padding: 0;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #0b1320; color: #fff;
+    min-height: 100vh; min-height: 100dvh;
+    overscroll-behavior: none;
+    -webkit-user-select: none; user-select: none;
+  }
+
+  body {
+    display: flex; justify-content: center;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+
+  .wrap { width: 100%; max-width: 600px; padding: 12px; }
+
+  .status {
+    text-align: center; font-size: 0.85rem; padding: 8px;
+    border-radius: 10px; margin-bottom: 12px; font-weight: 600;
+  }
+  .status.connected { background: rgba(63, 217, 118, 0.15); color: #3fd976; }
+  .status.disconnected { background: rgba(255, 75, 75, 0.15); color: #ff4b4b; }
+
+  h1 {
+    text-align: center; font-size: 1.1rem; text-transform: uppercase;
+    letter-spacing: 2px; margin: 0 0 16px; color: #ccc;
+  }
+
+  .pin-screen {
+    background: #1b2433; border-radius: 16px; padding: 24px;
+    text-align: center; border: 2px solid #3fa9f5;
+  }
+  .pin-screen input {
+    font-size: 2rem; text-align: center; letter-spacing: 8px;
+    width: 100%; padding: 12px; border-radius: 10px; border: none;
+    margin: 16px 0; background: #222b3a; color: #fff;
+  }
+  .pin-screen button {
+    background: #ffcc00; border: none; border-radius: 10px;
+    padding: 14px 24px; font-size: 1.1rem; font-weight: 700;
+    cursor: pointer; width: 100%;
+  }
+  .pin-error { color: #ff4b4b; font-size: 0.85rem; min-height: 18px; margin-top: 8px; }
+
+  .board { display: none; }
+  .board.visible { display: block; }
+
+  .teams { display: flex; gap: 12px; margin-bottom: 16px; }
+
+  .team {
+    flex: 1; background: #1b2433; border-radius: 14px; padding: 14px;
+    text-align: center; border: 2px solid #3fa9f5;
+  }
+  .team.a { border-color: #ff4b4b; }
+  .team.b { border-color: #3fa9f5; }
+
+  .team-name {
+    font-size: 1rem; font-weight: 700; margin-bottom: 6px;
+    display: flex; align-items: center; justify-content: center;
+    gap: 6px; cursor: pointer; min-height: 24px;
+  }
+
+  .server-ball {
+    width: 12px; height: 12px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #fbff5c, #d7d400 75%);
+    box-shadow: 0 0 8px rgba(255, 247, 0, 0.85);
+    opacity: 0; transform: scale(0.4);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+  .server-ball.active { opacity: 1; transform: scale(1); }
+
+  .score {
+    font-size: 3.4rem; font-weight: bold; margin: 6px 0 12px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .controls { display: flex; gap: 8px; }
+  .controls button {
+    flex: 1; background: #ffcc00; border: none; border-radius: 10px;
+    padding: 16px 0; font-size: 1.2rem; font-weight: 700;
+    cursor: pointer; touch-action: manipulation;
+  }
+  .controls button:active { background: #ffd633; transform: scale(0.96); }
+
+  .serve-hint { text-align: center; font-size: 0.75rem; color: #8a94a6; margin-bottom: 16px; }
+
+  .row { display: flex; gap: 12px; margin-bottom: 12px; }
+  .card { flex: 1; background: #222b3a; border-radius: 14px; padding: 12px; text-align: center; }
+  .card h2 { margin: 0 0 8px; font-size: 0.9rem; color: #ccc; }
+
+  #maxPoints {
+    font-size: 1.3rem; padding: 8px 10px; border-radius: 8px; border: none;
+    text-align: center; width: 70px;
+  }
+  #matchStatus { font-size: 1.2rem; }
+
+  .timer-display { font-size: 2rem; margin: 4px 0 10px; font-variant-numeric: tabular-nums; }
+  .timer-controls { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .timer-controls button {
+    background: #3fa9f5; border: none; border-radius: 10px; padding: 10px 14px;
+    font-size: 0.95rem; font-weight: 600; cursor: pointer; color: #fff;
+  }
+  .timer-controls button:active { background: #5fc0ff; }
+
+  .live-toggle {
+    background: #222b3a; border-radius: 14px; padding: 12px; margin-bottom: 12px; text-align: center;
+  }
+  .live-toggle h2 { margin: 0 0 8px; font-size: 0.9rem; color: #ccc; }
+  .live-row { display: flex; gap: 8px; align-items: center; }
+  .live-row input[type=text] {
+    flex: 1; padding: 10px; border-radius: 8px; border: none; font-size: 0.9rem;
+  }
+  .live-btn {
+    border: none; border-radius: 10px; padding: 10px 16px; font-weight: 700;
+    cursor: pointer; font-size: 0.9rem; color: #fff;
+  }
+  .live-btn.on { background: #ff4b4b; }
+  .live-btn.off { background: #3a4256; }
+
+  .reset-match { display: flex; justify-content: center; margin: 8px 0 4px; }
+  .reset-match button {
+    background: #ff4b4b; color: #fff; border: none; border-radius: 10px;
+    padding: 12px 20px; font-size: 0.95rem; font-weight: 700; cursor: pointer;
+  }
+  .reset-match button:active { background: #e63e3e; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="connStatus" class="status disconnected">Conectando...</div>
+  <h1>Control del tanteador</h1>
+
+  <div id="pinScreen" class="pin-screen">
+    <p>Ingresá el PIN para habilitar el control</p>
+    <input type="password" id="pinInput" inputmode="numeric" maxlength="4" placeholder="••••" />
+    <button onclick="checkPin()">Ingresar</button>
+    <div class="pin-error" id="pinError"></div>
+  </div>
+
+  <div id="board" class="board">
+    <div class="teams">
+      <div class="team a">
+        <div class="team-name" onclick="promptName('A')">
+          <span id="nameA">Local</span>
+          <span class="server-ball" id="ballA"></span>
+        </div>
+        <div class="score" id="scoreA">0</div>
+        <div class="controls">
+          <button onclick="changeScore('A', 1)">+1</button>
+          <button onclick="changeScore('A', -1)">-1</button>
+        </div>
+      </div>
+
+      <div class="team b">
+        <div class="team-name" onclick="promptName('B')">
+          <span id="nameB">Visitante</span>
+          <span class="server-ball" id="ballB"></span>
+        </div>
+        <div class="score" id="scoreB">0</div>
+        <div class="controls">
+          <button onclick="changeScore('B', 1)">+1</button>
+          <button onclick="changeScore('B', -1)">-1</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="serve-hint">🟡 Tocá el nombre del equipo para elegir quién saca, o para editarlo</div>
+
+    <div class="row">
+      <div class="card">
+        <h2>Tantos a jugar</h2>
+        <input type="number" id="maxPoints" value="30" min="1" max="99" inputmode="numeric" onchange="setMaxPoints(this.value)" />
+      </div>
+      <div class="card">
+        <h2>Partido</h2>
+        <div id="matchStatus">En juego</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:12px;">
+      <h2>Tiempo</h2>
+      <div class="timer-display" id="timerDisplay">00:00</div>
+      <div class="timer-controls">
+        <button onclick="timerStart()">▶ Iniciar</button>
+        <button onclick="timerPause()">⏸ Pausar</button>
+        <button onclick="timerReset()">⟲ Reset</button>
+      </div>
+    </div>
+
+    <div class="live-toggle">
+      <h2>Transmisión en vivo (opcional, para la pantalla pública)</h2>
+      <div class="live-row">
+        <input type="text" id="youtubeUrl" placeholder="Link de YouTube (opcional)" />
+      </div>
+      <div style="margin-top:8px;">
+        <button class="live-btn off" id="liveBtn" onclick="toggleLive()">Marcar como EN VIVO</button>
+      </div>
+    </div>
+
+    <div class="reset-match">
+      <button onclick="if(confirm('¿Reiniciar el marcador?')) resetMatch()">⟲ Reiniciar marcador</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script>
+  const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  const defaultState = {
+    id: 1,
+    team_a_name: "Local", team_b_name: "Visitante",
+    score_a: 0, score_b: 0, server: null,
+    max_points: 30, match_status: "playing",
+    timer_accumulated: 0, timer_running_since: null,
+  };
+  let currentState = { ...defaultState };
+  let liveInfo = { is_live: false, youtube_url: "" };
+
+  // --- PIN ---
+  function checkPin() {
+    const val = document.getElementById("pinInput").value;
+    if (val === CONTROL_PIN) {
+      document.getElementById("pinScreen").style.display = "none";
+      document.getElementById("board").classList.add("visible");
+      sessionStorage.setItem("tanteador_pin_ok", "1");
+    } else {
+      document.getElementById("pinError").textContent = "PIN incorrecto";
+    }
+  }
+  if (sessionStorage.getItem("tanteador_pin_ok") === "1") {
+    document.getElementById("pinScreen").style.display = "none";
+    document.getElementById("board").classList.add("visible");
+  }
+
+  function setConnStatus(ok) {
+    const el = document.getElementById("connStatus");
+    if (ok) { el.textContent = "🟢 Conectado"; el.className = "status connected"; }
+    else { el.textContent = "🔴 Sin conexión — reintentando..."; el.className = "status disconnected"; }
+  }
+
+  async function loadInitial() {
+    const { data: stateRow } = await client.from("match_state").select("*").eq("id", 1).single();
+    if (stateRow) { currentState = stateRow; render(); }
+    const { data: liveRow } = await client.from("match_live").select("*").eq("id", 1).single();
+    if (liveRow) { liveInfo = liveRow; renderLive(); }
+  }
+
+  const channel = client
+    .channel("match-control")
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "match_state", filter: "id=eq.1" },
+      (payload) => { currentState = payload.new; render(); })
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "match_live", filter: "id=eq.1" },
+      (payload) => { liveInfo = payload.new; renderLive(); })
+    .subscribe((status) => {
+      setConnStatus(status === "SUBSCRIBED");
+    });
+
+  loadInitial();
+
+  async function writeState(patch) {
+    // actualizacion optimista: reflejamos ya mismo en pantalla
+    currentState = { ...currentState, ...patch };
+    render();
+    await client.from("match_state").update(patch).eq("id", 1);
+  }
+
+  function changeScore(team, delta) {
+    let scoreA = currentState.score_a;
+    let scoreB = currentState.score_b;
+    const maxPoints = currentState.max_points || 30;
+
+    if (team === "A") scoreA = Math.max(0, scoreA + delta);
+    else scoreB = Math.max(0, scoreB + delta);
+
+    if (scoreA > maxPoints) scoreA = maxPoints;
+    if (scoreB > maxPoints) scoreB = maxPoints;
+
+    const patch = { score_a: scoreA, score_b: scoreB };
+    if (delta > 0) patch.server = team;
+
+    let matchStatus = "playing";
+    if (scoreA >= maxPoints && scoreA > scoreB) matchStatus = "A";
+    else if (scoreB >= maxPoints && scoreB > scoreA) matchStatus = "B";
+    patch.match_status = matchStatus;
+
+    writeState(patch);
+  }
+
+  function setServer(team) { writeState({ server: team }); }
+
+  function promptName(team) {
+    const current = team === "A" ? currentState.team_a_name : currentState.team_b_name;
+    const value = prompt("Nombre del equipo:", current);
+    if (value !== null && value.trim() !== "") {
+      writeState(team === "A" ? { team_a_name: value.trim().slice(0, 30) } : { team_b_name: value.trim().slice(0, 30) });
+    } else {
+      setServer(team);
+    }
+  }
+
+  function setMaxPoints(value) {
+    const maxPoints = Math.max(1, parseInt(value) || 30);
+    let matchStatus = "playing";
+    if (currentState.score_a >= maxPoints && currentState.score_a > currentState.score_b) matchStatus = "A";
+    else if (currentState.score_b >= maxPoints && currentState.score_b > currentState.score_a) matchStatus = "B";
+    writeState({ max_points: maxPoints, match_status: matchStatus });
+  }
+
+  function resetMatch() {
+    writeState({
+      score_a: 0, score_b: 0, server: null, match_status: "playing",
+      timer_accumulated: 0, timer_running_since: null,
+    });
+  }
+
+  // --- Timer ---
+  function timerStart() {
+    if (currentState.timer_running_since) return;
+    writeState({ timer_running_since: Date.now() });
+  }
+  function timerPause() {
+    if (!currentState.timer_running_since) return;
+    const elapsed = (Date.now() - currentState.timer_running_since) / 1000;
+    writeState({
+      timer_accumulated: (currentState.timer_accumulated || 0) + elapsed,
+      timer_running_since: null,
+    });
+  }
+  function timerReset() {
+    writeState({ timer_accumulated: 0, timer_running_since: null });
+  }
+
+  function computeTimerSeconds() {
+    let secs = currentState.timer_accumulated || 0;
+    if (currentState.timer_running_since) secs += (Date.now() - currentState.timer_running_since) / 1000;
+    return Math.floor(secs);
+  }
+
+  function formatTime(seconds) {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  }
+
+  // --- Live toggle ---
+  async function toggleLive() {
+    const youtubeUrl = document.getElementById("youtubeUrl").value.trim();
+    const newIsLive = !liveInfo.is_live;
+    liveInfo = { ...liveInfo, is_live: newIsLive, youtube_url: youtubeUrl };
+    renderLive();
+    await client.from("match_live").update({ is_live: newIsLive, youtube_url: youtubeUrl }).eq("id", 1);
+  }
+  document.getElementById("youtubeUrl").addEventListener("change", async (e) => {
+    const youtube_url = e.target.value.trim();
+    await client.from("match_live").update({ youtube_url }).eq("id", 1);
+  });
+
+  function renderLive() {
+    document.getElementById("youtubeUrl").value = liveInfo.youtube_url || "";
+    const btn = document.getElementById("liveBtn");
+    if (liveInfo.is_live) {
+      btn.textContent = "🔴 EN VIVO — Tocar para bajar";
+      btn.className = "live-btn on";
+    } else {
+      btn.textContent = "Marcar como EN VIVO";
+      btn.className = "live-btn off";
+    }
+  }
+
+  // --- Render ---
+  function render() {
+    const s = currentState;
+    document.getElementById("nameA").textContent = s.team_a_name;
+    document.getElementById("nameB").textContent = s.team_b_name;
+    document.getElementById("scoreA").textContent = s.score_a;
+    document.getElementById("scoreB").textContent = s.score_b;
+    document.getElementById("ballA").classList.toggle("active", s.server === "A");
+    document.getElementById("ballB").classList.toggle("active", s.server === "B");
+    if (document.activeElement.id !== "maxPoints") {
+      document.getElementById("maxPoints").value = s.max_points;
+    }
+
+    const statusEl = document.getElementById("matchStatus");
+    if (s.match_status === "A") { statusEl.textContent = `Ganó ${s.team_a_name}`; statusEl.style.color = "#ff4b4b"; }
+    else if (s.match_status === "B") { statusEl.textContent = `Ganó ${s.team_b_name}`; statusEl.style.color = "#3fa9f5"; }
+    else { statusEl.textContent = "En juego"; statusEl.style.color = "#fff"; }
+
+    document.getElementById("timerDisplay").textContent = formatTime(computeTimerSeconds());
+  }
+
+  setInterval(() => {
+    document.getElementById("timerDisplay").textContent = formatTime(computeTimerSeconds());
+  }, 1000);
+</script>
+</body>
+</html>
