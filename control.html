@@ -432,6 +432,14 @@
     else if (scoreB >= maxPoints && scoreB > scoreA) matchStatus = "B";
     patch.match_status = matchStatus;
 
+    // El "arranque" de un partido de torneo (lo que necesita la cola de
+    // cancha para los avisos) queda registrado apenas se carga el primer
+    // punto — no hace falta que ademas alguien toque "EN VIVO" (ese boton
+    // es para la transmision, no siempre se usa).
+    if (currentState.tournament_id && !currentState.actual_started_at) {
+      patch.actual_started_at = new Date().toISOString();
+    }
+
     writeState(patch);
   }
 
