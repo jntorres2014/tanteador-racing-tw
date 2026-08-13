@@ -52,6 +52,43 @@
   .status-msg.err { background: rgba(255,75,75,0.15); color: #ff4b4b; }
   .hidden { display: none; }
   .helptext { font-size: 0.75rem; color: #8a94a6; margin-top: 4px; }
+
+  /* Barra de login (auth.js) + pantalla de acceso */
+  .auth-bar {
+    background: #1b2433; border-radius: 12px; padding: 10px 14px;
+    margin-bottom: 16px; border: 2px solid #2a3448;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .auth-bar-out { padding: 14px; }
+  .auth-btn-google {
+    width: 100%; background: #fff; color: #1a1a1a; border: none;
+    border-radius: 10px; padding: 12px; font-weight: 700; font-size: 0.92rem;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .auth-google-g {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 18px; border-radius: 50%; background: #4285F4;
+    color: #fff; font-size: 0.72rem; font-weight: 900;
+  }
+  .auth-bar-in { justify-content: space-between; }
+  .auth-user { display: flex; align-items: center; gap: 10px; }
+  .auth-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
+  .auth-avatar-fallback {
+    display: flex; align-items: center; justify-content: center;
+    background: #3fa9f5; color: #fff; font-weight: 700; font-size: 0.95rem;
+  }
+  .auth-name { font-weight: 600; font-size: 0.88rem; text-align: left; }
+  .auth-role { font-size: 0.72rem; color: #8a94a6; margin-top: 1px; }
+  .auth-role-admin { color: #ffcc00; font-weight: 600; }
+  .auth-pending { font-size: 0.72rem; color: #ff9d4b; margin-top: 1px; }
+  .auth-btn-logout {
+    background: #3a4256; color: #fff; border: none; border-radius: 8px;
+    padding: 8px 14px; font-size: 0.8rem; font-weight: 600; cursor: pointer;
+  }
+  .access-blocked {
+    background: #1b2433; border-radius: 14px; padding: 20px; text-align: center;
+    border: 2px solid #ff9d4b; color: #bcc4d1; font-size: 0.88rem;
+  }
 </style>
 </head>
 <body>
@@ -60,6 +97,10 @@
   <h1>Importar fixture</h1>
   <div class="subtitle">Subís el Excel del fixture, revisás lo que el sistema detectó, y recién ahí se carga. Nunca se importa directo.</div>
 
+  <div id="authBar"><div class="auth-bar">Cargando sesión...</div></div>
+  <div id="accessBlocked" class="access-blocked hidden"></div>
+
+  <div id="importerContent" class="hidden">
   <div class="card">
     <h2 style="margin-top:0;">1. Datos del torneo</h2>
     <div class="row">
@@ -121,14 +162,52 @@
       <div id="statusMsg"></div>
     </div>
   </div>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="supabase-config.js"></script>
+<script src="auth.js"></script>
 <script src="importar-logic.js"></script>
 <script>
   var client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // ------------------------------------------------------------
+  // Esta pantalla crea torneos, categorias, parejas, etc. — todo
+  // eso ahora requiere ser admin de verdad (ver db/008-permisos-
+  // reales.sql). Si no sos admin logueado, ni se muestra el
+  // formulario: solo el mensaje de acceso.
+  // ------------------------------------------------------------
+  async function checkImporterAccess() {
+    const { session, profile } = await authRenderInto("authBar");
+    const blockedEl = document.getElementById("accessBlocked");
+    const contentEl = document.getElementById("importerContent");
+
+    let allowed = false;
+    let msg = "";
+    if (!session) {
+      msg = "Iniciá sesión con Google (como admin) para poder importar un fixture.";
+    } else if (!profile || !profile.active) {
+      msg = "Tu cuenta todavía no fue activada por un admin.";
+    } else if (profile.role !== "admin") {
+      msg = "Solo un administrador puede importar un fixture.";
+    } else {
+      allowed = true;
+    }
+
+    if (allowed) {
+      blockedEl.classList.add("hidden");
+      contentEl.classList.remove("hidden");
+    } else {
+      blockedEl.textContent = msg;
+      blockedEl.classList.remove("hidden");
+      contentEl.classList.add("hidden");
+    }
+    return allowed;
+  }
+  checkImporterAccess();
+  authWatch("authBar", () => checkImporterAccess());
 
   let sheetRows = [];   // filas crudas del excel (array de arrays)
   let headerRow = [];

@@ -181,7 +181,14 @@
     return Math.random().toString(36).slice(2, 8);
   }
 
-  function crearPartido() {
+  async function crearPartido() {
+    // Hace falta estar logueado (y activo) para crear un partido:
+    // el partido queda asignado automaticamente a quien lo crea.
+    const { data: sessionData } = await client.auth.getSession();
+    if (!sessionData || !sessionData.session) {
+      alert("Iniciá sesión con Google primero para crear un partido.");
+      return;
+    }
     document.getElementById("modalLabel").value = "";
     document.getElementById("modalTeamA").value = "";
     document.getElementById("modalTeamB").value = "";
@@ -200,9 +207,16 @@
     const teamB = document.getElementById("modalTeamB").value.trim() || "Visitante";
     const maxPoints = Math.max(1, parseInt(document.getElementById("modalMaxPoints").value) || 30);
 
+    const { data: sessionData } = await client.auth.getSession();
+    if (!sessionData || !sessionData.session) {
+      alert("Se cerró tu sesión. Iniciá sesión de nuevo para crear el partido.");
+      return;
+    }
+
     const id = genId();
     const { error } = await client.from("matches").insert({
       id, label, team_a_name: teamA, team_b_name: teamB, max_points: maxPoints,
+      referee_user_id: sessionData.session.user.id,
     });
     if (error) {
       alert("No se pudo crear el partido: " + error.message);

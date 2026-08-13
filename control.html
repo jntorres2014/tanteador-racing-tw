@@ -43,21 +43,45 @@
   h1.label { font-size: 1rem; }
   .subtitle { text-align: center; font-size: 0.75rem; color: #8a94a6; margin: 0 0 16px; }
 
-  .pin-screen {
+  .access-screen {
     background: #1b2433; border-radius: 16px; padding: 24px;
     text-align: center; border: 2px solid #3fa9f5;
   }
-  .pin-screen input {
-    font-size: 2rem; text-align: center; letter-spacing: 8px;
-    width: 100%; padding: 12px; border-radius: 10px; border: none;
-    margin: 16px 0; background: #222b3a; color: #fff;
+  .access-screen p { color: #bcc4d1; font-size: 0.9rem; margin: 0 0 16px; }
+  .access-screen .auth-bar { margin-bottom: 0; }
+
+  /* Barra de login (auth.js) */
+  .auth-bar {
+    background: #222b3a; border-radius: 12px; padding: 10px 14px;
+    margin-bottom: 16px; border: 2px solid #3a4256;
+    display: flex; align-items: center; justify-content: center;
   }
-  .pin-screen button {
-    background: #ffcc00; border: none; border-radius: 10px;
-    padding: 14px 24px; font-size: 1.1rem; font-weight: 700;
-    cursor: pointer; width: 100%;
+  .auth-bar-out { padding: 14px; }
+  .auth-btn-google {
+    width: 100%; background: #fff; color: #1a1a1a; border: none;
+    border-radius: 10px; padding: 12px; font-weight: 700; font-size: 0.92rem;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
   }
-  .pin-error { color: #ff4b4b; font-size: 0.85rem; min-height: 18px; margin-top: 8px; }
+  .auth-google-g {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 18px; border-radius: 50%; background: #4285F4;
+    color: #fff; font-size: 0.72rem; font-weight: 900;
+  }
+  .auth-bar-in { justify-content: space-between; }
+  .auth-user { display: flex; align-items: center; gap: 10px; }
+  .auth-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
+  .auth-avatar-fallback {
+    display: flex; align-items: center; justify-content: center;
+    background: #3fa9f5; color: #fff; font-weight: 700; font-size: 0.95rem;
+  }
+  .auth-name { font-weight: 600; font-size: 0.88rem; text-align: left; }
+  .auth-role { font-size: 0.72rem; color: #8a94a6; margin-top: 1px; }
+  .auth-role-admin { color: #ffcc00; font-weight: 600; }
+  .auth-pending { font-size: 0.72rem; color: #ff9d4b; margin-top: 1px; }
+  .auth-btn-logout {
+    background: #3a4256; color: #fff; border: none; border-radius: 8px;
+    padding: 8px 14px; font-size: 0.8rem; font-weight: 600; cursor: pointer;
+  }
 
   .board { display: none; }
   .board.visible { display: block; }
@@ -186,11 +210,9 @@
     <h1>Control del tanteador</h1>
     <div class="subtitle" id="matchLabel"></div>
 
-    <div id="pinScreen" class="pin-screen">
-      <p>Ingresá el PIN para habilitar el control</p>
-      <input type="password" id="pinInput" inputmode="numeric" maxlength="4" placeholder="••••" />
-      <button onclick="checkPin()">Ingresar</button>
-      <div class="pin-error" id="pinError"></div>
+    <div id="accessScreen" class="access-screen" style="display:none;">
+      <div id="accessAuthBar"><div class="auth-bar">Cargando sesión...</div></div>
+      <p id="accessMessage"></p>
     </div>
 
     <div id="board" class="board">
@@ -290,6 +312,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
+<script src="auth.js"></script>
 <script>
   var client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -313,29 +336,51 @@
   };
   let currentState = { ...defaultState };
 
-  function checkPin() {
-    const val = document.getElementById("pinInput").value;
-    if (val === CONTROL_PIN) {
-      document.getElementById("pinScreen").style.display = "none";
-      document.getElementById("board").classList.add("visible");
-      sessionStorage.setItem("tanteador_pin_ok", "1");
-    } else {
-      document.getElementById("pinError").textContent = "PIN incorrecto";
-    }
-  }
-
   function setConnStatus(ok) {
     const el = document.getElementById("connStatus");
     if (ok) { el.textContent = "🟢 Conectado"; el.className = "status connected"; }
     else { el.textContent = "🔴 Sin conexión — reintentando..."; el.className = "status disconnected"; }
   }
 
-  async function init() {
-    if (sessionStorage.getItem("tanteador_pin_ok") === "1") {
-      document.getElementById("pinScreen").style.display = "none";
-      document.getElementById("board").classList.add("visible");
+  // ------------------------------------------------------------
+  // Control de acceso: reemplaza al PIN de antes. Esto es solo la
+  // parte visual — quien de verdad decide si se puede editar o no
+  // es la base de datos (RLS, ver db/008-permisos-reales.sql). Si
+  // alguien intentara saltarse esta pantalla, la base igual le
+  // rechaza el guardado.
+  // ------------------------------------------------------------
+  async function checkAccess() {
+    const { session, profile } = await authRenderInto("accessAuthBar");
+    const msgEl = document.getElementById("accessMessage");
+    const accessEl = document.getElementById("accessScreen");
+    const boardEl = document.getElementById("board");
+
+    let editable = false;
+    if (!session) {
+      msgEl.textContent = "Iniciá sesión para cargar este partido.";
+    } else if (!profile || !profile.active) {
+      msgEl.textContent = "Tu cuenta todavía no fue activada por un admin.";
+    } else if (profile.role === "admin") {
+      editable = true;
+    } else if (currentState.referee_user_id === session.user.id) {
+      editable = true;
+    } else if (!currentState.referee_user_id) {
+      msgEl.textContent = "Este partido todavía no tiene árbitro asignado. Pedile a un admin que te lo asigne.";
+    } else {
+      msgEl.textContent = "Este partido está asignado a otro árbitro.";
     }
 
+    if (editable) {
+      accessEl.style.display = "none";
+      boardEl.classList.add("visible");
+    } else {
+      accessEl.style.display = "block";
+      boardEl.classList.remove("visible");
+    }
+    return editable;
+  }
+
+  async function init() {
     const { data, error } = await client.from("matches").select("*").eq("id", matchId).single();
     if (error || !data) {
       document.getElementById("mainContent").style.display = "none";
@@ -346,6 +391,10 @@
     document.getElementById("matchLabel").textContent = data.label;
     render();
     renderLive();
+
+    document.getElementById("accessScreen").style.display = "block";
+    await checkAccess();
+    authWatch("accessAuthBar", () => checkAccess());
 
     client
       .channel("control-" + matchId)
