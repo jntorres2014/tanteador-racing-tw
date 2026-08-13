@@ -1,0 +1,4 @@
+# Normaliza los finales de linea. Sin esto, git marca archivos como
+# modificados cuando en realidad son identicos (CRLF de Windows vs LF).
+* text=auto eol=lf
+*.png binary

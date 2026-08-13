@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#0b1320" />
+<title>Racing Club TW — Tanteadores</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; min-height: 100vh;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #0b1320; color: #fff;
+  }
+  body { display: flex; justify-content: center; padding: 20px; }
+  .wrap { width: 100%; max-width: 560px; }
+
+  .logo-row { text-align: center; margin-bottom: 20px; }
+  .logo-row img { width: 68px; height: 68px; border-radius: 12px; object-fit: cover; }
+  .logo-row h1 { font-size: 1.1rem; text-transform: uppercase; letter-spacing: 2px; margin: 10px 0 0; }
+  .logo-row h3 { font-weight: 400; color: #bcc4d1; margin: 2px 0 0; font-size: 0.85rem; }
+
+  .actions { display: flex; gap: 10px; margin-bottom: 24px; }
+  .actions button, .actions a {
+    flex: 1; text-align: center; text-decoration: none;
+    background: #ffcc00; color: #0b1320; font-weight: 700;
+    border: none; border-radius: 12px; padding: 14px; font-size: 0.95rem; cursor: pointer;
+  }
+  .actions a.secondary { background: #222b3a; color: #fff; }
+
+  h2.section-title {
+    font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1.5px;
+    color: #8a94a6; margin: 24px 0 10px;
+  }
+
+  .match-card {
+    background: #1b2433; border-radius: 14px; padding: 14px 16px;
+    margin-bottom: 10px; border: 2px solid #3a4256;
+  }
+  .match-card.live { border-color: #ff4b4b; }
+
+  .match-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .match-label { font-weight: 700; font-size: 0.95rem; }
+  .live-tag {
+    background: rgba(255,75,75,0.15); color: #ff4b4b; font-size: 0.7rem; font-weight: 700;
+    padding: 3px 8px; border-radius: 10px;
+  }
+
+  .match-score { font-size: 1rem; color: #ccc; margin-bottom: 10px; }
+
+  .match-links { display: flex; gap: 8px; }
+  .match-links a {
+    flex: 1; text-align: center; text-decoration: none; font-size: 0.82rem; font-weight: 600;
+    padding: 8px; border-radius: 8px;
+  }
+  .link-control { background: #3fa9f5; color: #fff; }
+  .link-display { background: #3a4256; color: #fff; }
+
+  .empty { text-align: center; color: #8a94a6; padding: 20px; font-size: 0.9rem; }
+
+  /* Modal */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    align-items: center; justify-content: center; padding: 16px; z-index: 100;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: #1b2433; border-radius: 16px; padding: 22px;
+    border: 2px solid #3fa9f5; width: 100%; max-width: 420px;
+  }
+  .modal-box h3 { margin: 0 0 16px; font-size: 1.05rem; text-align: center; }
+  .modal-field { margin-bottom: 12px; }
+  .modal-field label { display: block; font-size: 0.78rem; color: #8a94a6; margin-bottom: 4px; }
+  .modal-field input {
+    width: 100%; padding: 10px 12px; border-radius: 8px; border: none;
+    font-size: 0.95rem; background: #222b3a; color: #fff;
+  }
+  .modal-field.split { display: flex; gap: 10px; }
+  .modal-field.split > div { flex: 1; }
+  .modal-actions { display: flex; gap: 10px; margin-top: 18px; }
+  .modal-actions button {
+    flex: 1; border: none; border-radius: 10px; padding: 12px; font-weight: 700;
+    font-size: 0.95rem; cursor: pointer;
+  }
+  .modal-btn-cancel { background: #3a4256; color: #fff; }
+  .modal-btn-confirm { background: #ffcc00; color: #0b1320; }
+
+  /* Barra de login (auth.js) */
+  .auth-bar {
+    background: #1b2433; border-radius: 12px; padding: 10px 14px;
+    margin-bottom: 16px; border: 2px solid #3a4256;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .auth-bar-out { padding: 14px; }
+  .auth-btn-google {
+    width: 100%; background: #fff; color: #1a1a1a; border: none;
+    border-radius: 10px; padding: 12px; font-weight: 700; font-size: 0.92rem;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .auth-google-g {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 18px; border-radius: 50%; background: #4285F4;
+    color: #fff; font-size: 0.72rem; font-weight: 900;
+  }
+  .auth-bar-in { justify-content: space-between; }
+  .auth-user { display: flex; align-items: center; gap: 10px; }
+  .auth-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
+  .auth-avatar-fallback {
+    display: flex; align-items: center; justify-content: center;
+    background: #3fa9f5; color: #fff; font-weight: 700; font-size: 0.95rem;
+  }
+  .auth-name { font-weight: 600; font-size: 0.88rem; }
+  .auth-role { font-size: 0.72rem; color: #8a94a6; margin-top: 1px; }
+  .auth-role-admin { color: #ffcc00; font-weight: 600; }
+  .auth-pending { font-size: 0.72rem; color: #ff9d4b; margin-top: 1px; }
+  .auth-btn-logout {
+    background: #3a4256; color: #fff; border: none; border-radius: 8px;
+    padding: 8px 14px; font-size: 0.8rem; font-weight: 600; cursor: pointer;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo-row">
+    <img src="logo.png" alt="" />
+    <h1>Racing Club TW</h1>
+    <h3>Tanteadores</h3>
+  </div>
+
+  <div id="authBar"><div class="auth-bar">Cargando sesión...</div></div>
+
+  <div class="actions">
+    <button onclick="crearPartido()">+ Nuevo partido</button>
+    <a href="torneos.html" class="secondary">Torneos</a>
+    <a href="historial.html" class="secondary">Historial</a>
+    <a href="live.html" class="secondary">En vivo (público)</a>
+  </div>
+
+  <h2 class="section-title">Partidos activos</h2>
+  <div id="activeList"><div class="empty">Cargando...</div></div>
+</div>
+
+<div class="modal-overlay" id="newMatchModal">
+  <div class="modal-box">
+    <h3>Nuevo partido</h3>
+    <div class="modal-field">
+      <label>Cancha / etiqueta</label>
+      <input type="text" id="modalLabel" placeholder="Ej: Cancha 1 - Trinquete" />
+    </div>
+    <div class="modal-field split">
+      <div>
+        <label>Equipo Local</label>
+        <input type="text" id="modalTeamA" placeholder="Local" />
+      </div>
+      <div>
+        <label>Equipo Visitante</label>
+        <input type="text" id="modalTeamB" placeholder="Visitante" />
+      </div>
+    </div>
+    <div class="modal-field">
+      <label>Tantos a jugar</label>
+      <input type="number" id="modalMaxPoints" value="30" min="1" max="99" inputmode="numeric" />
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn-cancel" onclick="closeNewMatchModal()">Cancelar</button>
+      <button class="modal-btn-confirm" onclick="confirmCrearPartido()">Crear partido</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script src="auth.js"></script>
+<script>
+  var client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  authRenderInto("authBar");
+  authWatch("authBar");
+
+  function genId() {
+    return Math.random().toString(36).slice(2, 8);
+  }
+
+  function crearPartido() {
+    document.getElementById("modalLabel").value = "";
+    document.getElementById("modalTeamA").value = "";
+    document.getElementById("modalTeamB").value = "";
+    document.getElementById("modalMaxPoints").value = 30;
+    document.getElementById("newMatchModal").classList.add("open");
+    setTimeout(() => document.getElementById("modalLabel").focus(), 50);
+  }
+
+  function closeNewMatchModal() {
+    document.getElementById("newMatchModal").classList.remove("open");
+  }
+
+  async function confirmCrearPartido() {
+    const label = document.getElementById("modalLabel").value.trim() || "Partido";
+    const teamA = document.getElementById("modalTeamA").value.trim() || "Local";
+    const teamB = document.getElementById("modalTeamB").value.trim() || "Visitante";
+    const maxPoints = Math.max(1, parseInt(document.getElementById("modalMaxPoints").value) || 30);
+
+    const id = genId();
+    const { error } = await client.from("matches").insert({
+      id, label, team_a_name: teamA, team_b_name: teamB, max_points: maxPoints,
+    });
+    if (error) {
+      alert("No se pudo crear el partido: " + error.message);
+      return;
+    }
+    window.location.href = `control.html?m=${id}`;
+  }
+
+  function renderList(matches) {
+    const el = document.getElementById("activeList");
+    if (!matches || matches.length === 0) {
+      el.innerHTML = '<div class="empty">No hay partidos activos. Creá uno nuevo arriba.</div>';
+      return;
+    }
+    el.innerHTML = matches.map((m) => `
+      <div class="match-card ${m.is_live ? "live" : ""}">
+        <div class="match-top">
+          <div class="match-label">${escapeHtml(m.label)}</div>
+          ${m.is_live ? '<div class="live-tag">🔴 EN VIVO</div>' : ""}
+        </div>
+        <div class="match-score">${escapeHtml(m.team_a_name)} ${m.score_a} — ${m.score_b} ${escapeHtml(m.team_b_name)}</div>
+        <div class="match-links">
+          <a class="link-control" href="control.html?m=${m.id}">Control</a>
+          <a class="link-display" href="display.html?m=${m.id}" target="_blank">Display (OBS)</a>
+        </div>
+      </div>
+    `).join("");
+  }
+
+  function escapeHtml(s) {
+    return String(s || "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+  }
+
+  async function loadActive() {
+    const { data } = await client
+      .from("matches")
+      .select("*")
+      .eq("is_finished", false)
+      .order("updated_at", { ascending: false });
+    renderList(data);
+  }
+
+  client
+    .channel("index-matches")
+    .on("postgres_changes", { event: "*", schema: "public", table: "matches" }, () => loadActive())
+    .subscribe();
+
+  loadActive();
+</script>
+</body>
+</html>

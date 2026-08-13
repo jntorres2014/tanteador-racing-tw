@@ -31,10 +31,17 @@
   .status.connected { background: rgba(63, 217, 118, 0.15); color: #3fd976; }
   .status.disconnected { background: rgba(255, 75, 75, 0.15); color: #ff4b4b; }
 
-  h1 {
-    text-align: center; font-size: 1.1rem; text-transform: uppercase;
-    letter-spacing: 2px; margin: 0 0 16px; color: #ccc;
+  .back-link {
+    display: block; text-align: center; font-size: 0.8rem; color: #8a94a6;
+    text-decoration: none; margin-bottom: 10px;
   }
+
+  h1 {
+    text-align: center; font-size: 1.05rem; text-transform: uppercase;
+    letter-spacing: 1.5px; margin: 0 0 4px; color: #fff;
+  }
+  h1.label { font-size: 1rem; }
+  .subtitle { text-align: center; font-size: 0.75rem; color: #8a94a6; margin: 0 0 16px; }
 
   .pin-screen {
     background: #1b2433; border-radius: 16px; padding: 24px;
@@ -127,88 +134,156 @@
   .live-btn.on { background: #ff4b4b; }
   .live-btn.off { background: #3a4256; }
 
-  .reset-match { display: flex; justify-content: center; margin: 8px 0 4px; }
-  .reset-match button {
-    background: #ff4b4b; color: #fff; border: none; border-radius: 10px;
-    padding: 12px 20px; font-size: 0.95rem; font-weight: 700; cursor: pointer;
+  .danger-row { display: flex; gap: 10px; margin: 8px 0 4px; }
+  .danger-row button {
+    flex: 1; color: #fff; border: none; border-radius: 10px;
+    padding: 12px 10px; font-size: 0.88rem; font-weight: 700; cursor: pointer;
   }
-  .reset-match button:active { background: #e63e3e; }
+  .btn-reset { background: #3a4256; }
+  .btn-finish { background: #ff4b4b; }
+
+  .error-screen { text-align: center; padding: 40px 16px; color: #ccc; }
+
+  /* Modal */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    align-items: center; justify-content: center; padding: 16px; z-index: 100;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: #1b2433; border-radius: 16px; padding: 22px;
+    border: 2px solid #3fa9f5; width: 100%; max-width: 380px;
+  }
+  .modal-box h3 { margin: 0 0 6px; font-size: 1.05rem; text-align: center; }
+  .modal-box p { margin: 0 0 16px; font-size: 0.88rem; text-align: center; color: #bcc4d1; }
+  .modal-field { margin-bottom: 4px; }
+  .modal-field input {
+    width: 100%; padding: 10px 12px; border-radius: 8px; border: none;
+    font-size: 1rem; background: #222b3a; color: #fff; text-align: center;
+  }
+  .modal-actions { display: flex; gap: 10px; margin-top: 18px; }
+  .modal-actions.stacked { flex-direction: column; }
+  .modal-actions button {
+    flex: 1; border: none; border-radius: 10px; padding: 12px; font-weight: 700;
+    font-size: 0.92rem; cursor: pointer;
+  }
+  .modal-btn-cancel { background: #3a4256; color: #fff; }
+  .modal-btn-confirm { background: #ffcc00; color: #0b1320; }
+  .modal-btn-danger { background: #ff4b4b; color: #fff; }
+  .modal-btn-server { background: #3fa9f5; color: #fff; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div id="connStatus" class="status disconnected">Conectando...</div>
-  <h1>Control del tanteador</h1>
-
-  <div id="pinScreen" class="pin-screen">
-    <p>Ingresá el PIN para habilitar el control</p>
-    <input type="password" id="pinInput" inputmode="numeric" maxlength="4" placeholder="••••" />
-    <button onclick="checkPin()">Ingresar</button>
-    <div class="pin-error" id="pinError"></div>
+  <div id="errorScreen" class="error-screen" style="display:none;">
+    <p>No se encontró este partido.</p>
+    <a href="index.html" style="color:#3fa9f5;">Volver al menú</a>
   </div>
 
-  <div id="board" class="board">
-    <div class="teams">
-      <div class="team a">
-        <div class="team-name" onclick="promptName('A')">
-          <span id="nameA">Local</span>
-          <span class="server-ball" id="ballA"></span>
-        </div>
-        <div class="score" id="scoreA">0</div>
-        <div class="controls">
-          <button onclick="changeScore('A', 1)">+1</button>
-          <button onclick="changeScore('A', -1)">-1</button>
-        </div>
-      </div>
+  <div id="mainContent" style="display:none;">
+    <a class="back-link" href="index.html">← Menú de partidos</a>
+    <div id="connStatus" class="status disconnected">Conectando...</div>
+    <h1>Control del tanteador</h1>
+    <div class="subtitle" id="matchLabel"></div>
 
-      <div class="team b">
-        <div class="team-name" onclick="promptName('B')">
-          <span id="nameB">Visitante</span>
-          <span class="server-ball" id="ballB"></span>
-        </div>
-        <div class="score" id="scoreB">0</div>
-        <div class="controls">
-          <button onclick="changeScore('B', 1)">+1</button>
-          <button onclick="changeScore('B', -1)">-1</button>
-        </div>
-      </div>
+    <div id="pinScreen" class="pin-screen">
+      <p>Ingresá el PIN para habilitar el control</p>
+      <input type="password" id="pinInput" inputmode="numeric" maxlength="4" placeholder="••••" />
+      <button onclick="checkPin()">Ingresar</button>
+      <div class="pin-error" id="pinError"></div>
     </div>
 
-    <div class="serve-hint">🟡 Tocá el nombre del equipo para elegir quién saca, o para editarlo</div>
+    <div id="board" class="board">
+      <div class="teams">
+        <div class="team a">
+          <div class="team-name" onclick="promptName('A')">
+            <span id="nameA">Local</span>
+            <span class="server-ball" id="ballA"></span>
+          </div>
+          <div class="score" id="scoreA">0</div>
+          <div class="controls">
+            <button onclick="changeScore('A', 1)">+1</button>
+            <button onclick="changeScore('A', -1)">-1</button>
+          </div>
+        </div>
 
-    <div class="row">
-      <div class="card">
-        <h2>Tantos a jugar</h2>
-        <input type="number" id="maxPoints" value="30" min="1" max="99" inputmode="numeric" onchange="setMaxPoints(this.value)" />
+        <div class="team b">
+          <div class="team-name" onclick="promptName('B')">
+            <span id="nameB">Visitante</span>
+            <span class="server-ball" id="ballB"></span>
+          </div>
+          <div class="score" id="scoreB">0</div>
+          <div class="controls">
+            <button onclick="changeScore('B', 1)">+1</button>
+            <button onclick="changeScore('B', -1)">-1</button>
+          </div>
+        </div>
       </div>
-      <div class="card">
-        <h2>Partido</h2>
-        <div id="matchStatus">En juego</div>
+
+      <div class="serve-hint">🟡 Tocá el nombre del equipo para elegir quién saca, o para editarlo</div>
+
+      <div class="row">
+        <div class="card">
+          <h2>Tantos a jugar</h2>
+          <input type="number" id="maxPoints" value="30" min="1" max="99" inputmode="numeric" onchange="setMaxPoints(this.value)" />
+        </div>
+        <div class="card">
+          <h2>Partido</h2>
+          <div id="matchStatus">En juego</div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:12px;">
+        <h2>Tiempo</h2>
+        <div class="timer-display" id="timerDisplay">00:00</div>
+        <div class="timer-controls">
+          <button onclick="timerStart()">▶ Iniciar</button>
+          <button onclick="timerPause()">⏸ Pausar</button>
+          <button onclick="timerReset()">⟲ Reset</button>
+        </div>
+      </div>
+
+      <div class="live-toggle">
+        <h2>Transmisión en vivo (opcional, para la pantalla pública)</h2>
+        <div class="live-row">
+          <input type="text" id="youtubeUrl" placeholder="Link de YouTube (opcional)" />
+        </div>
+        <div style="margin-top:8px;">
+          <button class="live-btn off" id="liveBtn" onclick="toggleLive()">Marcar como EN VIVO</button>
+        </div>
+      </div>
+
+      <div class="danger-row">
+        <button class="btn-reset" onclick="openConfirmModal('reset')">⟲ Reiniciar marcador</button>
+        <button class="btn-finish" onclick="openConfirmModal('finish')">🏁 Finalizar partido</button>
       </div>
     </div>
+  </div>
+</div>
 
-    <div class="card" style="margin-bottom:12px;">
-      <h2>Tiempo</h2>
-      <div class="timer-display" id="timerDisplay">00:00</div>
-      <div class="timer-controls">
-        <button onclick="timerStart()">▶ Iniciar</button>
-        <button onclick="timerPause()">⏸ Pausar</button>
-        <button onclick="timerReset()">⟲ Reset</button>
+<div class="modal-overlay" id="nameModal">
+  <div class="modal-box">
+    <h3>Nombre del equipo</h3>
+    <div class="modal-field">
+      <input type="text" id="nameModalInput" maxlength="30" />
+    </div>
+    <div class="modal-actions stacked">
+      <button class="modal-btn-server" onclick="modalSetServer()">🟡 Este equipo saca ahora</button>
+      <div style="display:flex; gap:10px;">
+        <button class="modal-btn-cancel" onclick="closeNameModal()">Cancelar</button>
+        <button class="modal-btn-confirm" onclick="modalSaveName()">Guardar nombre</button>
       </div>
     </div>
+  </div>
+</div>
 
-    <div class="live-toggle">
-      <h2>Transmisión en vivo (opcional, para la pantalla pública)</h2>
-      <div class="live-row">
-        <input type="text" id="youtubeUrl" placeholder="Link de YouTube (opcional)" />
-      </div>
-      <div style="margin-top:8px;">
-        <button class="live-btn off" id="liveBtn" onclick="toggleLive()">Marcar como EN VIVO</button>
-      </div>
-    </div>
-
-    <div class="reset-match">
-      <button onclick="if(confirm('¿Reiniciar el marcador?')) resetMatch()">⟲ Reiniciar marcador</button>
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal-box">
+    <h3 id="confirmTitle">Confirmar</h3>
+    <p id="confirmText"></p>
+    <div class="modal-actions">
+      <button class="modal-btn-cancel" onclick="closeConfirmModal()">Cancelar</button>
+      <button class="modal-btn-danger" id="confirmActionBtn" onclick="runConfirmedAction()">Confirmar</button>
     </div>
   </div>
 </div>
@@ -216,19 +291,28 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
 <script>
-  const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  var client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  const params = new URLSearchParams(window.location.search);
+  const matchId = params.get("m");
+
+  if (!matchId) {
+    document.getElementById("errorScreen").style.display = "block";
+  } else {
+    document.getElementById("mainContent").style.display = "block";
+    init();
+  }
 
   const defaultState = {
-    id: 1,
+    id: null, label: "Partido",
     team_a_name: "Local", team_b_name: "Visitante",
     score_a: 0, score_b: 0, server: null,
     max_points: 30, match_status: "playing",
     timer_accumulated: 0, timer_running_since: null,
+    is_live: false, youtube_url: "", is_finished: false,
   };
   let currentState = { ...defaultState };
-  let liveInfo = { is_live: false, youtube_url: "" };
 
-  // --- PIN ---
   function checkPin() {
     const val = document.getElementById("pinInput").value;
     if (val === CONTROL_PIN) {
@@ -239,10 +323,6 @@
       document.getElementById("pinError").textContent = "PIN incorrecto";
     }
   }
-  if (sessionStorage.getItem("tanteador_pin_ok") === "1") {
-    document.getElementById("pinScreen").style.display = "none";
-    document.getElementById("board").classList.add("visible");
-  }
 
   function setConnStatus(ok) {
     const el = document.getElementById("connStatus");
@@ -250,30 +330,38 @@
     else { el.textContent = "🔴 Sin conexión — reintentando..."; el.className = "status disconnected"; }
   }
 
-  async function loadInitial() {
-    const { data: stateRow } = await client.from("match_state").select("*").eq("id", 1).single();
-    if (stateRow) { currentState = stateRow; render(); }
-    const { data: liveRow } = await client.from("match_live").select("*").eq("id", 1).single();
-    if (liveRow) { liveInfo = liveRow; renderLive(); }
+  async function init() {
+    if (sessionStorage.getItem("tanteador_pin_ok") === "1") {
+      document.getElementById("pinScreen").style.display = "none";
+      document.getElementById("board").classList.add("visible");
+    }
+
+    const { data, error } = await client.from("matches").select("*").eq("id", matchId).single();
+    if (error || !data) {
+      document.getElementById("mainContent").style.display = "none";
+      document.getElementById("errorScreen").style.display = "block";
+      return;
+    }
+    currentState = data;
+    document.getElementById("matchLabel").textContent = data.label;
+    render();
+    renderLive();
+
+    client
+      .channel("control-" + matchId)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "matches", filter: `id=eq.${matchId}` },
+        (payload) => { currentState = payload.new; render(); renderLive(); })
+      .subscribe((status) => setConnStatus(status === "SUBSCRIBED"));
+
+    setInterval(() => {
+      document.getElementById("timerDisplay").textContent = formatTime(computeTimerSeconds());
+    }, 1000);
   }
 
-  const channel = client
-    .channel("match-control")
-    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "match_state", filter: "id=eq.1" },
-      (payload) => { currentState = payload.new; render(); })
-    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "match_live", filter: "id=eq.1" },
-      (payload) => { liveInfo = payload.new; renderLive(); })
-    .subscribe((status) => {
-      setConnStatus(status === "SUBSCRIBED");
-    });
-
-  loadInitial();
-
   async function writeState(patch) {
-    // actualizacion optimista: reflejamos ya mismo en pantalla
     currentState = { ...currentState, ...patch };
     render();
-    await client.from("match_state").update(patch).eq("id", 1);
+    await client.from("matches").update(patch).eq("id", matchId);
   }
 
   function changeScore(team, delta) {
@@ -300,14 +388,67 @@
 
   function setServer(team) { writeState({ server: team }); }
 
+  // --- Modal: nombre de equipo ---
+  let nameModalTeam = null;
+
   function promptName(team) {
+    nameModalTeam = team;
     const current = team === "A" ? currentState.team_a_name : currentState.team_b_name;
-    const value = prompt("Nombre del equipo:", current);
-    if (value !== null && value.trim() !== "") {
-      writeState(team === "A" ? { team_a_name: value.trim().slice(0, 30) } : { team_b_name: value.trim().slice(0, 30) });
-    } else {
-      setServer(team);
+    document.getElementById("nameModalInput").value = current;
+    document.getElementById("nameModal").classList.add("open");
+    setTimeout(() => document.getElementById("nameModalInput").select(), 50);
+  }
+
+  function closeNameModal() {
+    document.getElementById("nameModal").classList.remove("open");
+    nameModalTeam = null;
+  }
+
+  function modalSaveName() {
+    const value = document.getElementById("nameModalInput").value.trim();
+    if (value !== "") {
+      writeState(nameModalTeam === "A" ? { team_a_name: value.slice(0, 30) } : { team_b_name: value.slice(0, 30) });
     }
+    closeNameModal();
+  }
+
+  function modalSetServer() {
+    if (nameModalTeam) setServer(nameModalTeam);
+    closeNameModal();
+  }
+
+  // --- Modal: confirmaciones (reset / finalizar) ---
+  let pendingAction = null;
+
+  function openConfirmModal(action) {
+    pendingAction = action;
+    const titleEl = document.getElementById("confirmTitle");
+    const textEl = document.getElementById("confirmText");
+    const btnEl = document.getElementById("confirmActionBtn");
+
+    if (action === "reset") {
+      titleEl.textContent = "¿Reiniciar el marcador?";
+      textEl.textContent = "Los puntos vuelven a 0. El partido sigue activo.";
+      btnEl.textContent = "Sí, reiniciar";
+      btnEl.className = "modal-btn-confirm";
+    } else if (action === "finish") {
+      titleEl.textContent = "¿Finalizar este partido?";
+      textEl.textContent = "Pasa al historial y sale de la lista de activos.";
+      btnEl.textContent = "Sí, finalizar";
+      btnEl.className = "modal-btn-danger";
+    }
+    document.getElementById("confirmModal").classList.add("open");
+  }
+
+  function closeConfirmModal() {
+    document.getElementById("confirmModal").classList.remove("open");
+    pendingAction = null;
+  }
+
+  function runConfirmedAction() {
+    if (pendingAction === "reset") resetMatch();
+    else if (pendingAction === "finish") finishMatch();
+    closeConfirmModal();
   }
 
   function setMaxPoints(value) {
@@ -325,7 +466,22 @@
     });
   }
 
-  // --- Timer ---
+  async function finishMatch() {
+    // Usa finalize_match() cuando existe: ademas de guardar el
+    // resultado, resuelve los cruces "Ganador Partido N" que
+    // dependan de este partido (si es un partido de torneo) y deja
+    // registro en auditoria. Si la funcion todavia no esta creada en
+    // este proyecto de Supabase (falta correr db/005-finalize-match.sql),
+    // se cae al guardado directo de siempre para no dejar al usuario
+    // sin poder finalizar.
+    const { error } = await client.rpc("finalize_match", { p_match_id: matchId });
+    if (error) {
+      console.warn("finalize_match no disponible, uso el guardado directo:", error.message || error);
+      await writeState({ is_finished: true, is_live: false });
+    }
+    window.location.href = "index.html";
+  }
+
   function timerStart() {
     if (currentState.timer_running_since) return;
     writeState({ timer_running_since: Date.now() });
@@ -354,23 +510,19 @@
     return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   }
 
-  // --- Live toggle ---
   async function toggleLive() {
     const youtubeUrl = document.getElementById("youtubeUrl").value.trim();
-    const newIsLive = !liveInfo.is_live;
-    liveInfo = { ...liveInfo, is_live: newIsLive, youtube_url: youtubeUrl };
-    renderLive();
-    await client.from("match_live").update({ is_live: newIsLive, youtube_url: youtubeUrl }).eq("id", 1);
+    const newIsLive = !currentState.is_live;
+    writeState({ is_live: newIsLive, youtube_url: youtubeUrl });
   }
-  document.getElementById("youtubeUrl").addEventListener("change", async (e) => {
-    const youtube_url = e.target.value.trim();
-    await client.from("match_live").update({ youtube_url }).eq("id", 1);
+  document.getElementById("youtubeUrl").addEventListener("change", (e) => {
+    writeState({ youtube_url: e.target.value.trim() });
   });
 
   function renderLive() {
-    document.getElementById("youtubeUrl").value = liveInfo.youtube_url || "";
+    document.getElementById("youtubeUrl").value = currentState.youtube_url || "";
     const btn = document.getElementById("liveBtn");
-    if (liveInfo.is_live) {
+    if (currentState.is_live) {
       btn.textContent = "🔴 EN VIVO — Tocar para bajar";
       btn.className = "live-btn on";
     } else {
@@ -379,7 +531,6 @@
     }
   }
 
-  // --- Render ---
   function render() {
     const s = currentState;
     document.getElementById("nameA").textContent = s.team_a_name;
@@ -398,11 +549,8 @@
     else { statusEl.textContent = "En juego"; statusEl.style.color = "#fff"; }
 
     document.getElementById("timerDisplay").textContent = formatTime(computeTimerSeconds());
+    renderLive();
   }
-
-  setInterval(() => {
-    document.getElementById("timerDisplay").textContent = formatTime(computeTimerSeconds());
-  }, 1000);
 </script>
 </body>
 </html>

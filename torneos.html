@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#0b1320" />
+<title>Racing Club TW — Torneos</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; min-height: 100vh;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #0b1320; color: #fff;
+  }
+  body { display: flex; justify-content: center; padding: 20px; }
+  .wrap { width: 100%; max-width: 640px; }
+
+  .top-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+  .back-link { color: #8a94a6; text-decoration: none; font-size: 0.85rem; }
+  h1 { font-size: 1.05rem; text-transform: uppercase; letter-spacing: 1.5px; margin: 0; text-align: center; flex: 1; }
+
+  .tournament-card {
+    background: #1b2433; border-radius: 14px; padding: 16px 18px;
+    margin-bottom: 12px; border: 2px solid #3a4256; cursor: pointer;
+  }
+  .tournament-card:hover { border-color: #3fa9f5; }
+  .t-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .t-name { font-weight: 700; font-size: 1.02rem; }
+  .t-sub { color: #8a94a6; font-size: 0.82rem; margin-top: 2px; }
+  .t-status {
+    font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+    padding: 4px 9px; border-radius: 10px; white-space: nowrap;
+  }
+  .status-draft { background: rgba(255,204,0,0.15); color: #ffcc00; }
+  .status-published, .status-in_progress { background: rgba(63,169,245,0.15); color: #3fa9f5; }
+  .status-finished { background: rgba(90,220,140,0.15); color: #5adc8c; }
+  .status-archived { background: rgba(138,148,166,0.15); color: #8a94a6; }
+
+  .t-progress { color: #bcc4d1; font-size: 0.82rem; margin-top: 10px; }
+
+  .empty { text-align: center; color: #8a94a6; padding: 30px 10px; font-size: 0.9rem; }
+
+  /* Detalle de un torneo */
+  .detail-header {
+    background: #1b2433; border-radius: 14px; padding: 16px 18px;
+    margin-bottom: 18px; border: 2px solid #3a4256;
+  }
+  .detail-header h2 { margin: 0 0 4px; font-size: 1.1rem; }
+  .detail-header .meta { color: #8a94a6; font-size: 0.82rem; }
+  .publish-btn {
+    margin-top: 12px; width: 100%; border: none; border-radius: 10px; padding: 11px;
+    background: #ffcc00; color: #0b1320; font-weight: 700; font-size: 0.88rem; cursor: pointer;
+  }
+
+  h3.group-title {
+    font-size: 0.82rem; text-transform: uppercase; letter-spacing: 1.5px;
+    color: #8a94a6; margin: 22px 0 10px;
+  }
+
+  .match-card {
+    background: #1b2433; border-radius: 14px; padding: 13px 16px;
+    margin-bottom: 9px; border: 2px solid #3a4256;
+  }
+  .match-card.finished { border-color: #2c3549; opacity: 0.85; }
+  .match-card.live { border-color: #ff4b4b; }
+  .match-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .match-label { font-weight: 700; font-size: 0.9rem; color: #bcc4d1; }
+  .live-tag {
+    background: rgba(255,75,75,0.15); color: #ff4b4b; font-size: 0.68rem; font-weight: 700;
+    padding: 3px 8px; border-radius: 10px;
+  }
+  .finished-tag {
+    background: rgba(90,220,140,0.12); color: #5adc8c; font-size: 0.68rem; font-weight: 700;
+    padding: 3px 8px; border-radius: 10px;
+  }
+  .pending-tag {
+    background: rgba(138,148,166,0.12); color: #8a94a6; font-size: 0.68rem; font-weight: 700;
+    padding: 3px 8px; border-radius: 10px;
+  }
+  .match-score { font-size: 0.98rem; color: #eee; margin-bottom: 10px; }
+  .match-score .vs { color: #8a94a6; font-weight: 400; font-size: 0.85rem; }
+  .match-links { display: flex; gap: 8px; }
+  .match-links a {
+    flex: 1; text-align: center; text-decoration: none; font-size: 0.8rem; font-weight: 600;
+    padding: 8px; border-radius: 8px;
+  }
+  .link-control { background: #3fa9f5; color: #fff; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top-row">
+    <a href="index.html" class="back-link">← Menú</a>
+    <h1>Torneos</h1>
+    <span style="width:50px"></span>
+  </div>
+
+  <div id="content"><div class="empty">Cargando...</div></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script>
+  var client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  const STATUS_LABEL = {
+    draft: "Borrador",
+    published: "Publicado",
+    in_progress: "En curso",
+    finished: "Finalizado",
+    archived: "Archivado",
+  };
+
+  function escapeHtml(s) {
+    return String(s || "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+  }
+
+  function getTournamentIdFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("t");
+  }
+
+  // ------------------------------------------------------------
+  // Listado de torneos
+  // ------------------------------------------------------------
+  async function loadTournamentList() {
+    const { data: tournaments, error } = await client
+      .from("tournaments")
+      .select("*, seasons(year)")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      document.getElementById("content").innerHTML =
+        `<div class="empty">No se pudo cargar: ${escapeHtml(error.message)}</div>`;
+      return;
+    }
+    if (!tournaments || tournaments.length === 0) {
+      document.getElementById("content").innerHTML =
+        '<div class="empty">Todavía no hay torneos cargados. Importá un fixture para crear el primero.</div>';
+      return;
+    }
+
+    // progreso de partidos por torneo (para mostrar "5/19 jugados")
+    const ids = tournaments.map((t) => t.id);
+    const { data: matchCounts } = await client
+      .from("matches")
+      .select("tournament_id, is_finished")
+      .in("tournament_id", ids);
+
+    const progress = {};
+    (matchCounts || []).forEach((m) => {
+      if (!m.tournament_id) return;
+      if (!progress[m.tournament_id]) progress[m.tournament_id] = { total: 0, done: 0 };
+      progress[m.tournament_id].total++;
+      if (m.is_finished) progress[m.tournament_id].done++;
+    });
+
+    document.getElementById("content").innerHTML = tournaments.map((t) => {
+      const p = progress[t.id] || { total: 0, done: 0 };
+      const sub = [t.edition, t.venue, t.seasons ? t.seasons.year : null].filter(Boolean).join(" · ");
+      return `
+        <div class="tournament-card" onclick="location.href='torneos.html?t=${t.id}'">
+          <div class="t-top">
+            <div>
+              <div class="t-name">${escapeHtml(t.name)}</div>
+              ${sub ? `<div class="t-sub">${escapeHtml(sub)}</div>` : ""}
+            </div>
+            <div class="t-status status-${t.status}">${STATUS_LABEL[t.status] || t.status}</div>
+          </div>
+          <div class="t-progress">${p.total ? `${p.done} / ${p.total} partidos jugados` : "Sin partidos cargados"}</div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  // ------------------------------------------------------------
+  // Detalle de un torneo: partidos agrupados por categoría
+  // ------------------------------------------------------------
+  async function loadTournamentDetail(tournamentId) {
+    const [{ data: tournament, error: tErr }, { data: matches, error: mErr }] = await Promise.all([
+      client.from("tournaments").select("*, seasons(year)").eq("id", tournamentId).single(),
+      client.from("matches")
+        .select("*, categories(name, display_order), courts(name)")
+        .eq("tournament_id", tournamentId)
+        .order("match_number", { ascending: true }),
+    ]);
+
+    if (tErr || !tournament) {
+      document.getElementById("content").innerHTML =
+        `<div class="empty">No se encontró el torneo.</div>`;
+      return;
+    }
+    if (mErr) {
+      document.getElementById("content").innerHTML =
+        `<div class="empty">No se pudieron cargar los partidos: ${escapeHtml(mErr.message)}</div>`;
+      return;
+    }
+
+    const sub = [tournament.edition, tournament.venue, tournament.seasons ? tournament.seasons.year : null]
+      .filter(Boolean).join(" · ");
+
+    let html = `
+      <div class="detail-header">
+        <h2>${escapeHtml(tournament.name)}</h2>
+        ${sub ? `<div class="meta">${escapeHtml(sub)}</div>` : ""}
+        <div class="meta" style="margin-top:6px;">
+          Estado: <span class="t-status status-${tournament.status}" style="margin-left:4px;">${STATUS_LABEL[tournament.status] || tournament.status}</span>
+        </div>
+        ${tournament.status === "draft"
+          ? `<button class="publish-btn" onclick="publicarTorneo('${tournament.id}')">Publicar torneo</button>`
+          : ""}
+      </div>
+    `;
+
+    if (!matches || matches.length === 0) {
+      html += '<div class="empty">Este torneo todavía no tiene partidos cargados.</div>';
+      document.getElementById("content").innerHTML = html;
+      return;
+    }
+
+    // agrupar por categoria (display_order de la categoria si existe, sino nombre)
+    const groups = {};
+    matches.forEach((m) => {
+      const catName = m.categories ? m.categories.name : "Sin categoría";
+      const catOrder = m.categories ? (m.categories.display_order ?? 999) : 999;
+      const key = catName;
+      if (!groups[key]) groups[key] = { order: catOrder, matches: [] };
+      groups[key].matches.push(m);
+    });
+
+    const sortedGroupKeys = Object.keys(groups).sort((a, b) => groups[a].order - groups[b].order || a.localeCompare(b));
+
+    sortedGroupKeys.forEach((catName) => {
+      html += `<h3 class="group-title">Categoría ${escapeHtml(catName)}</h3>`;
+      groups[catName].matches
+        .sort((a, b) => (a.match_number ?? 999) - (b.match_number ?? 999))
+        .forEach((m) => {
+          const statusClass = m.is_finished ? "finished" : (m.is_live ? "live" : "");
+          const statusTag = m.is_finished
+            ? '<span class="finished-tag">Finalizado</span>'
+            : (m.is_live ? '<span class="live-tag">🔴 EN VIVO</span>' : '<span class="pending-tag">Pendiente</span>');
+          const courtTxt = m.courts ? ` · ${escapeHtml(m.courts.name)}` : "";
+          html += `
+            <div class="match-card ${statusClass}">
+              <div class="match-top">
+                <div class="match-label">${m.match_number ? `Partido ${m.match_number}` : "Partido"}${courtTxt}</div>
+                ${statusTag}
+              </div>
+              <div class="match-score">
+                ${escapeHtml(m.team_a_name)} <b>${m.score_a}</b> <span class="vs">—</span> <b>${m.score_b}</b> ${escapeHtml(m.team_b_name)}
+              </div>
+              <div class="match-links">
+                <a class="link-control" href="control.html?m=${m.id}">${m.is_finished ? "Ver / corregir" : "Cargar resultado"}</a>
+              </div>
+            </div>
+          `;
+        });
+    });
+
+    document.getElementById("content").innerHTML = html;
+  }
+
+  async function publicarTorneo(id) {
+    if (!confirm("¿Publicar este torneo? Va a quedar visible para todos.")) return;
+    const { error } = await client.from("tournaments").update({ status: "published" }).eq("id", id);
+    if (error) {
+      alert("No se pudo publicar: " + error.message);
+      return;
+    }
+    loadTournamentDetail(id);
+  }
+
+  function render() {
+    const tId = getTournamentIdFromUrl();
+    document.getElementById("content").innerHTML = '<div class="empty">Cargando...</div>';
+    if (tId) {
+      loadTournamentDetail(tId);
+    } else {
+      loadTournamentList();
+    }
+  }
+
+  window.addEventListener("popstate", render);
+  render();
+</script>
+</body>
+</html>

@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Importar fixture — Tanteador Racing Club TW</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #0b1320; color: #fff; min-height: 100vh;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 16px; }
+  .back-link { display: block; font-size: 0.8rem; color: #8a94a6; text-decoration: none; margin-bottom: 10px; }
+  h1 { font-size: 1.2rem; text-transform: uppercase; letter-spacing: 1.5px; margin: 0 0 4px; }
+  .subtitle { font-size: 0.8rem; color: #8a94a6; margin: 0 0 18px; }
+  h2 { font-size: 0.95rem; color: #ccc; margin: 22px 0 10px; }
+  .card { background: #1b2433; border-radius: 14px; padding: 16px; margin-bottom: 14px; border: 1px solid #2a3448; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+  .field { flex: 1; min-width: 160px; }
+  .field label { display: block; font-size: 0.75rem; color: #8a94a6; margin-bottom: 4px; }
+  .field input, .field select {
+    width: 100%; padding: 9px 10px; border-radius: 8px; border: none;
+    background: #222b3a; color: #fff; font-size: 0.9rem;
+  }
+  input[type=file] { color: #ccc; }
+  button {
+    border: none; border-radius: 10px; padding: 12px 18px; font-weight: 700;
+    font-size: 0.92rem; cursor: pointer;
+  }
+  .btn-primary { background: #ffcc00; color: #0b1320; }
+  .btn-secondary { background: #3a4256; color: #fff; }
+  .btn-danger { background: #ff4b4b; color: #fff; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #2a3448; }
+  th { color: #8a94a6; font-weight: 600; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; }
+  .badge.ok { background: rgba(63,217,118,0.15); color: #3fd976; }
+  .badge.warn { background: rgba(255,204,0,0.15); color: #ffcc00; }
+  .badge.err { background: rgba(255,75,75,0.15); color: #ff4b4b; }
+  .warning-item { padding: 8px 10px; border-radius: 8px; background: #222b3a; margin-bottom: 6px; font-size: 0.85rem; }
+  .warning-item.err { border-left: 3px solid #ff4b4b; }
+  .warning-item.warn { border-left: 3px solid #ffcc00; }
+  .summary-grid { display: flex; gap: 14px; flex-wrap: wrap; }
+  .summary-tile { background: #222b3a; border-radius: 10px; padding: 10px 14px; text-align: center; min-width: 90px; }
+  .summary-tile .n { font-size: 1.4rem; font-weight: 700; }
+  .summary-tile .l { font-size: 0.7rem; color: #8a94a6; }
+  .status-msg { font-size: 0.85rem; padding: 10px; border-radius: 8px; margin-top: 10px; }
+  .status-msg.ok { background: rgba(63,217,118,0.15); color: #3fd976; }
+  .status-msg.err { background: rgba(255,75,75,0.15); color: #ff4b4b; }
+  .hidden { display: none; }
+  .helptext { font-size: 0.75rem; color: #8a94a6; margin-top: 4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back-link" href="index.html">← Menú de partidos</a>
+  <h1>Importar fixture</h1>
+  <div class="subtitle">Subís el Excel del fixture, revisás lo que el sistema detectó, y recién ahí se carga. Nunca se importa directo.</div>
+
+  <div class="card">
+    <h2 style="margin-top:0;">1. Datos del torneo</h2>
+    <div class="row">
+      <div class="field"><label>Nombre del torneo</label><input id="fTorneoNombre" placeholder="Torneo Patagonico de Veteranos" /></div>
+      <div class="field"><label>Sede</label><input id="fSede" placeholder="Racing Trelew" /></div>
+      <div class="field"><label>Año (temporada)</label><input id="fAnio" type="number" value="2026" /></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>Fecha de esta jornada</label><input id="fFecha" type="date" /></div>
+      <div class="field"><label>Hora de inicio</label><input id="fHoraInicio" type="time" value="14:00" /></div>
+      <div class="field"><label>Cancha (si el Excel no la trae, se usa esta para todos los partidos)</label><input id="fCancha" placeholder="Cancha Racing" /></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0;">2. Archivo</h2>
+    <input type="file" id="fArchivo" accept=".xlsx,.xls" />
+    <div class="helptext">Formato esperado: Nro | Hora | Categoría | Jugadores (pareja A) | Jugadores (pareja B). El sistema intenta reconocer las columnas solo; si no acierta, se ajusta abajo.</div>
+    <div class="helptext" id="headerDetectNote" style="color:#3fd976;"></div>
+    <div id="columnMapBox" class="hidden" style="margin-top:14px;">
+      <div class="row">
+        <div class="field"><label>Columna: Nro</label><select id="colNro"></select></div>
+        <div class="field"><label>Columna: Hora</label><select id="colHora"></select></div>
+        <div class="field"><label>Columna: Categoría</label><select id="colCat"></select></div>
+        <div class="field"><label>Columna: Pareja A</label><select id="colA"></select></div>
+        <div class="field"><label>Columna: Pareja B</label><select id="colB"></select></div>
+      </div>
+      <button class="btn-primary" onclick="previsualizar()">Previsualizar</button>
+    </div>
+  </div>
+
+  <div id="previewBox" class="hidden">
+    <h2>3. Previsualización</h2>
+    <div class="card">
+      <div class="summary-grid" id="summaryGrid"></div>
+    </div>
+
+    <div id="warningsCard" class="card hidden">
+      <h2 style="margin-top:0;">Advertencias</h2>
+      <div id="warningsList"></div>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-top:0;">Partidos detectados</h2>
+      <table>
+        <thead><tr><th>#</th><th>Cat</th><th>Pareja A</th><th></th><th>Pareja B</th></tr></thead>
+        <tbody id="matchesTableBody"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem;">
+        <input type="checkbox" id="chkConfirmo" style="width:auto;" />
+        Revisé las advertencias de arriba y quiero importar igual (los casos ambiguos quedan sin jugador asignado, para completar a mano después).
+      </label>
+      <div style="margin-top:12px;">
+        <button class="btn-primary" id="btnImportar" onclick="importar()" disabled>Confirmar e importar</button>
+      </div>
+      <div id="statusMsg"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="supabase-config.js"></script>
+<script src="importar-logic.js"></script>
+<script>
+  var client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  let sheetRows = [];   // filas crudas del excel (array de arrays)
+  let headerRow = [];
+  let importPlan = null;
+  let roster = [];       // jugadores existentes, cargados de la DB
+
+  document.getElementById("fArchivo").addEventListener("change", handleFile);
+
+  // Busca en las primeras filas cuál es la de encabezados de verdad.
+  // Muchos fixtures reales (como el de Racing Trelew) traen varias
+  // filas de título arriba (nombre del torneo, edición, cancha,
+  // categorías) antes de llegar a "Nro | Hor | Cat | Jugadores | ...".
+  // Asumir que la fila 1 siempre es el encabezado rompía justo con
+  // ese caso real: tomaba la fila de títulos como si fuera un partido.
+  function detectHeaderRowIndex(data) {
+    const KEYWORDS = [/^nro|^n[uú]mero|^n$/i, /^hor/i, /^cat/i, /^jugador/i, /^vs$/i, /^cancha/i, /^[aá]rbitro/i];
+    let best = { idx: 0, score: 0 };
+    for (let i = 0; i < Math.min(data.length, 20); i++) {
+      const row = data[i] || [];
+      const score = row.filter(cell => KEYWORDS.some(re => re.test(String(cell).trim()))).length;
+      if (score > best.score) best = { idx: i, score };
+    }
+    return best.score >= 2 ? best.idx : 0; // si no encuentra nada confiable, vuelve al comportamiento anterior
+  }
+
+  async function handleFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: "array" });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const data = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+
+    const headerIdx = detectHeaderRowIndex(data);
+    headerRow = (data[headerIdx] || []).map(h => String(h).trim());
+    sheetRows = data.slice(headerIdx + 1).filter(r => r.some(c => String(c).trim() !== ""));
+
+    fillColumnSelectors();
+    document.getElementById("columnMapBox").classList.remove("hidden");
+    const noteEl = document.getElementById("headerDetectNote");
+    if (noteEl) {
+      noteEl.textContent = headerIdx > 0
+        ? `Se detectaron encabezados en la fila ${headerIdx + 1} del Excel (se ignoraron ${headerIdx} fila(s) de título arriba).`
+        : "";
+    }
+  }
+
+  function fillColumnSelectors() {
+    const selects = ["colNro", "colHora", "colCat", "colA", "colB"];
+    const guesses = {
+      colNro: /^nro|^n[uú]mero|^n$/i,
+      colHora: /^hor/i,
+      colCat: /^cat/i,
+      colA: /^jugador/i,   // primera columna "Jugadores"
+      colB: /jugador.*1$|^vs$/i, // "Jugadores.1" o similar
+    };
+    selects.forEach(id => {
+      const sel = document.getElementById(id);
+      sel.innerHTML = "";
+      const optNone = document.createElement("option");
+      optNone.value = "-1"; optNone.textContent = "(ninguna)";
+      sel.appendChild(optNone);
+      headerRow.forEach((h, idx) => {
+        const opt = document.createElement("option");
+        opt.value = idx; opt.textContent = `${h || "(sin nombre)"} [col ${idx}]`;
+        sel.appendChild(opt);
+      });
+    });
+    // auto-deteccion simple por nombre de columna, y si "Jugadores"
+    // aparece dos veces, la segunda va a Pareja B
+    let jugadoresSeen = 0;
+    headerRow.forEach((h, idx) => {
+      if (guesses.colNro.test(h)) document.getElementById("colNro").value = idx;
+      if (guesses.colHora.test(h)) document.getElementById("colHora").value = idx;
+      if (guesses.colCat.test(h)) document.getElementById("colCat").value = idx;
+      if (/^jugador/i.test(h)) {
+        jugadoresSeen++;
+        if (jugadoresSeen === 1) document.getElementById("colA").value = idx;
+        else if (jugadoresSeen === 2) document.getElementById("colB").value = idx;
+      }
+    });
+  }
+
+  async function fetchRoster() {
+    // trae jugadores existentes para poder matchear apellidos.
+    // se filtra por categoria en el momento del match, no aca.
+    const { data, error } = await client
+      .from("players")
+      .select("id, first_name, last_name, city, clubs(name)")
+      .limit(2000);
+    if (error) { console.error(error); return []; }
+    // necesitamos la categoria del jugador: no vive en "players"
+    // (es global), asi que el roster para matchear se arma a partir
+    // de ranking_events (jugador x categoria en la que jugo alguna vez).
+    const { data: cats } = await client
+      .from("ranking_events")
+      .select("player_id, categories(name)")
+      .limit(5000);
+    const catsByPlayer = {};
+    (cats || []).forEach(c => {
+      if (!c.categories) return;
+      catsByPlayer[c.player_id] = catsByPlayer[c.player_id] || new Set();
+      catsByPlayer[c.player_id].add(c.categories.name);
+    });
+    const rows = [];
+    (data || []).forEach(p => {
+      const categoriesForPlayer = catsByPlayer[p.id] ? [...catsByPlayer[p.id]] : [null];
+      categoriesForPlayer.forEach(catName => {
+        rows.push({
+          id: p.id, lastName: p.last_name, firstName: p.first_name || "",
+          categoryName: catName, clubName: p.clubs ? p.clubs.name : null,
+        });
+      });
+    });
+    return rows;
+  }
+
+  async function previsualizar() {
+    const colNro = parseInt(document.getElementById("colNro").value);
+    const colHora = parseInt(document.getElementById("colHora").value);
+    const colCat = parseInt(document.getElementById("colCat").value);
+    const colA = parseInt(document.getElementById("colA").value);
+    const colB = parseInt(document.getElementById("colB").value);
+
+    if (colCat < 0 || colA < 0 || colB < 0) {
+      alert("Faltan columnas obligatorias: Categoría, Pareja A y Pareja B.");
+      return;
+    }
+
+    document.getElementById("btnImportar").disabled = true;
+    document.getElementById("statusMsg").innerHTML = '<div class="status-msg ok">Cargando jugadores existentes para comparar…</div>';
+    roster = await fetchRoster();
+    document.getElementById("statusMsg").innerHTML = "";
+
+    let horaPrevia = null;
+    const rows = sheetRows.map((r, idx) => {
+      const horaCell = colHora >= 0 ? String(r[colHora] || "").trim() : "";
+      if (horaCell) horaPrevia = horaCell;
+      return {
+        nro: colNro >= 0 ? (parseInt(r[colNro]) || idx + 1) : idx + 1,
+        hora: idx === 0 ? (horaCell || null) : null, // Modelo B: solo el primer partido tiene hora real
+        categoria: String(r[colCat] || "").trim(),
+        ladoA: String(r[colA] || "").trim(),
+        ladoB: String(r[colB] || "").trim(),
+        cancha: document.getElementById("fCancha").value || null,
+      };
+    });
+
+    importPlan = ImportarLogic.buildImportPlan(rows, roster);
+    renderPreview();
+    document.getElementById("previewBox").classList.remove("hidden");
+    document.getElementById("previewBox").scrollIntoView({ behavior: "smooth" });
+  }
+
+  function sideLabel(side) {
+    if (side.kind === "reference") return `${side.refType === "winner_of" ? "Ganador" : "Perdedor"} Partido ${side.refMatchNumber}`;
+    if (side.kind === "empty") return "(vacío)";
+    if (side.kind === "unresolved") return side.raw + " ⚠️";
+    return side.apellidos.map(a => {
+      if (a.match.status === "matched") return a.apellidoRaw;
+      if (a.match.status === "ambiguous") return a.apellidoRaw + " ❓";
+      if (a.match.status === "not_found_with_suggestion") return a.apellidoRaw + " ✏️";
+      return a.apellidoRaw + " +";
+    }).join(" / ");
+  }
+
+  function renderPreview() {
+    const { summary, warnings, matches } = importPlan;
+
+    document.getElementById("summaryGrid").innerHTML = `
+      <div class="summary-tile"><div class="n">${summary.totalMatches}</div><div class="l">partidos</div></div>
+      <div class="summary-tile"><div class="n">${summary.categorias.length}</div><div class="l">categorías</div></div>
+      <div class="summary-tile"><div class="n">${warnings.length}</div><div class="l">advertencias</div></div>
+    `;
+
+    const hardErrors = warnings.filter(w => ["referencia_invalida", "referencia_circular", "nombre_no_separable"].includes(w.type));
+    const warningsCard = document.getElementById("warningsCard");
+    if (warnings.length) {
+      warningsCard.classList.remove("hidden");
+      document.getElementById("warningsList").innerHTML = warnings.map(w => {
+        const isHard = ["referencia_invalida", "referencia_circular", "nombre_no_separable"].includes(w.type);
+        return `<div class="warning-item ${isHard ? "err" : "warn"}">${isHard ? "🚫" : "⚠️"} ${w.detail}</div>`;
+      }).join("");
+    } else {
+      warningsCard.classList.add("hidden");
+    }
+
+    document.getElementById("matchesTableBody").innerHTML = matches.map(m => `
+      <tr>
+        <td>${m.matchNumber}</td>
+        <td>${m.categoria}</td>
+        <td>${sideLabel(m.sideA)}</td>
+        <td style="color:#8a94a6;">vs</td>
+        <td>${sideLabel(m.sideB)}</td>
+      </tr>
+    `).join("");
+
+    const btn = document.getElementById("btnImportar");
+    if (hardErrors.length) {
+      btn.disabled = true;
+      document.getElementById("statusMsg").innerHTML =
+        `<div class="status-msg err">Hay ${hardErrors.length} problema(s) que no se pueden importar así (referencias inválidas o nombres no separables). Corregí el Excel y volvé a subirlo.</div>`;
+    } else {
+      document.getElementById("statusMsg").innerHTML = "";
+      document.getElementById("chkConfirmo").onchange = (e) => { btn.disabled = !e.target.checked; };
+    }
+  }
+
+  async function importar() {
+    const btn = document.getElementById("btnImportar");
+    btn.disabled = true;
+    const statusEl = document.getElementById("statusMsg");
+    statusEl.innerHTML = '<div class="status-msg ok">Importando…</div>';
+
+    try {
+      const seasonYear = parseInt(document.getElementById("fAnio").value);
+      const { data: season } = await client.from("seasons")
+        .upsert({ year: seasonYear }, { onConflict: "year" }).select().single();
+
+      const { data: tournament } = await client.from("tournaments").insert({
+        season_id: season.id,
+        name: document.getElementById("fTorneoNombre").value || "Torneo sin nombre",
+        venue: document.getElementById("fSede").value || null,
+        status: "draft",
+      }).select().single();
+
+      const fecha = document.getElementById("fFecha").value || null;
+      let tournamentDay = null;
+      if (fecha) {
+        const { data: day } = await client.from("tournament_days")
+          .insert({ tournament_id: tournament.id, play_date: fecha, default_start_time: document.getElementById("fHoraInicio").value || null })
+          .select().single();
+        tournamentDay = day;
+      }
+
+      const canchaNombre = document.getElementById("fCancha").value || "Cancha principal";
+      const { data: court } = await client.from("courts")
+        .insert({ tournament_id: tournament.id, name: canchaNombre }).select().single();
+
+      // categorias: crear las que no existan
+      const catIds = {};
+      for (const catName of importPlan.summary.categorias) {
+        const { data: cat } = await client.from("categories")
+          .upsert({ name: catName }, { onConflict: "name" }).select().single();
+        catIds[ImportarLogic.normalizeKey(catName)] = cat.id;
+      }
+
+      // cache de jugadores nuevos creados en esta misma importacion,
+      // para no crear el mismo apellido dos veces dentro del mismo archivo
+      const newPlayerCache = {};
+
+      async function resolvePlayerId(apellidoInfo) {
+        if (apellidoInfo.match.status === "matched") return apellidoInfo.match.player.id;
+        if (apellidoInfo.match.status === "ambiguous") return null;              // no se elige solo
+        if (apellidoInfo.match.status === "not_found_with_suggestion") return null; // posible typo, no se asume
+        // "not_found": jugador genuinamente nuevo -> se da de alta
+        const key = ImportarLogic.normalizeKey(apellidoInfo.apellidoRaw);
+        if (newPlayerCache[key]) return newPlayerCache[key];
+        const { data: newPlayer } = await client.from("players").insert({
+          last_name: ImportarLogic.titleCase(apellidoInfo.apellidoRaw),
+          display_name: ImportarLogic.titleCase(apellidoInfo.apellidoRaw),
+        }).select().single();
+        newPlayerCache[key] = newPlayer.id;
+        return newPlayer.id;
+      }
+
+      async function resolveSideToPairId(side, categoryId) {
+        if (side.kind !== "pair" && side.kind !== "unresolved") return { pairId: null, isReference: side.kind === "reference" ? side : null };
+        const apellidos = side.kind === "unresolved" ? [{ apellidoRaw: side.raw, match: { status: "not_found" } }] : side.apellidos;
+        const playerIds = [];
+        for (const ap of apellidos) playerIds.push(await resolvePlayerId(ap));
+        const displayName = apellidos.map(a => ImportarLogic.titleCase(a.apellidoRaw)).join(" / ");
+        const { data: pair } = await client.from("tournament_pairs").insert({
+          tournament_id: tournament.id, category_id: categoryId,
+          player_1_id: playerIds[0] || null, player_2_id: playerIds[1] || null,
+          display_name: displayName, raw_display_name: side.raw,
+        }).select().single();
+        return { pairId: pair.id, isReference: null };
+      }
+
+      // 1ra pasada: crear los partidos + parejas directas
+      const insertedByNumber = {};
+      for (const m of importPlan.matches) {
+        const categoryId = catIds[ImportarLogic.normalizeKey(m.categoria)];
+        const resolvedA = await resolveSideToPairId(m.sideA, categoryId);
+        const resolvedB = await resolveSideToPairId(m.sideB, categoryId);
+
+        const matchId = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random())).slice(0, 8);
+        const teamAName = resolvedA.isReference ? resolvedA.isReference.raw : (m.sideA.kind === "pair" || m.sideA.kind === "unresolved" ? m.sideA.raw : "");
+        const teamBName = resolvedB.isReference ? resolvedB.isReference.raw : (m.sideB.kind === "pair" || m.sideB.kind === "unresolved" ? m.sideB.raw : "");
+
+        const { data: match } = await client.from("matches").insert({
+          id: matchId, label: `Partido ${m.matchNumber}`,
+          team_a_name: teamAName || "Por definir", team_b_name: teamBName || "Por definir",
+          tournament_id: tournament.id, tournament_day_id: tournamentDay ? tournamentDay.id : null,
+          category_id: categoryId, court_id: court.id,
+          match_number: m.matchNumber, sequence_order: m.sequenceOrder,
+          pair_a_id: resolvedA.pairId, pair_b_id: resolvedB.pairId,
+          scheduled_time: null,
+        }).select().single();
+
+        insertedByNumber[m.matchNumber] = { match, sideARef: resolvedA.isReference, sideBRef: resolvedB.isReference };
+      }
+
+      // 2da pasada: crear match_slots para las referencias "Ganador/Perdedor Partido N"
+      for (const [num, info] of Object.entries(insertedByNumber)) {
+        for (const [side, ref] of [["A", info.sideARef], ["B", info.sideBRef]]) {
+          if (!ref) continue;
+          const source = insertedByNumber[ref.refMatchNumber];
+          if (!source) continue;
+          await client.from("match_slots").insert({
+            match_id: info.match.id, side,
+            source_type: ref.refType, source_match_id: source.match.id,
+            raw_source_text: ref.raw,
+          });
+        }
+      }
+
+      statusEl.innerHTML = `<div class="status-msg ok">Listo. Se importaron ${importPlan.matches.length} partidos al torneo "${tournament.name}" (queda en borrador — publicalo desde el panel cuando esté todo revisado).</div>`;
+    } catch (err) {
+      console.error(err);
+      statusEl.innerHTML = `<div class="status-msg err">Error al importar: ${err.message || err}. No se pudo completar; revisá la consola del navegador (F12) para el detalle.</div>`;
+      btn.disabled = false;
+    }
+  }
+</script>
+</body>
+</html>
