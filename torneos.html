@@ -203,6 +203,7 @@
   var client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   let currentProfile = null;
+  let currentUserId = null;
   let activeReferees = null; // se carga solo si hace falta (admin viendo el detalle)
 
   // ------------------------------------------------------------
@@ -636,6 +637,17 @@
           const bellA = bellButtonHtml(m.pair_a_id, m.team_a_name);
           const bellB = bellButtonHtml(m.pair_b_id, m.team_b_name);
 
+          // Solo puede cargar/corregir resultado un admin, o el arbitro
+          // asignado a ESTE partido puntual. A cualquier otra persona
+          // (logueada o no) no le mostramos el link — igual no podria
+          // entrar, y el resultado ya se ve arriba.
+          const canEditThisMatch = isAdmin || (currentUserId && m.referee_user_id === currentUserId);
+          const linksRow = canEditThisMatch
+            ? `<div class="match-links">
+                <a class="link-control" href="control.html?m=${m.id}">${m.is_finished ? "Ver / corregir" : "Cargar resultado"}</a>
+              </div>`
+            : "";
+
           html += `
             <div class="match-card ${statusClass}">
               <div class="match-top">
@@ -645,9 +657,7 @@
               <div class="match-score">
                 ${escapeHtml(m.team_a_name)} ${bellA} <b>${m.score_a}</b> <span class="vs">—</span> <b>${m.score_b}</b> ${escapeHtml(m.team_b_name)} ${bellB}
               </div>
-              <div class="match-links">
-                <a class="link-control" href="control.html?m=${m.id}">${m.is_finished ? "Ver / corregir" : "Cargar resultado"}</a>
-              </div>
+              ${linksRow}
               ${refereeRow}
             </div>
           `;
@@ -671,6 +681,11 @@
       return;
     }
     selectEl.dataset.prev = refereeId;
+    // Actualizamos tambien la copia local, asi si se vuelve a dibujar
+    // esta seccion (por una busqueda, un filtro, etc.) sin recargar la
+    // pagina, ya refleja el arbitro recien asignado.
+    const match = currentMatches.find((m) => m.id === matchId);
+    if (match) match.referee_user_id = refereeId || null;
   }
 
   async function publicarTorneo(id) {
@@ -690,8 +705,9 @@
   }
 
   async function render() {
-    const { profile } = await authRenderInto("authBar");
+    const { session, profile } = await authRenderInto("authBar");
     currentProfile = profile;
+    currentUserId = session ? session.user.id : null;
     activeReferees = null; // se vuelve a cargar si cambia de admin o de torneo
     updateAdminActions();
 

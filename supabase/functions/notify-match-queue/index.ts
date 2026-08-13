@@ -3,22 +3,27 @@
 // ============================================================
 // Esta es la funcion que manda los avisos SOLA, sin que nadie toque
 // nada. Se dispara con un Database Webhook cada vez que se actualiza
-// un partido (por ejemplo, al marcarlo EN VIVO o al finalizarlo).
+// un partido (por ejemplo, al cargar un punto o al finalizarlo).
 //
 // Que hace, cada vez que se dispara:
-//   1. Mira en que cancha esta el partido que cambio.
-//   2. Recalcula la "cola" de esa cancha (que partidos estan
+//   1. Si el unico cambio fue "marcar como ya avisado" (ver mas abajo
+//      por que pasa esto), no hace nada — evita una vuelta de mas.
+//   2. Mira en que cancha y torneo esta el partido que cambio.
+//   3. Recalcula la "cola" de esa cancha/torneo (que partidos estan
 //      pendientes, en que orden, y cual esta jugandose ahora) usando
 //      la vista court_queue que ya existe en la base.
-//   3. Para el partido que esta jugandose ahora (si recien arranco):
-//      avisa "arranca ahora" a los suscriptos de sus dos parejas.
-//   4. Para el partido que quedo primero en la cola (el que sigue):
-//      avisa "falta 1 partido" a sus suscriptos.
-//   5. Para el partido que quedo segundo en la cola:
-//      avisa "faltan 2 partidos" a sus suscriptos.
-//   6. Marca cada aviso como "ya mandado" (notified_2_before,
-//      notified_1_before, notified_started) para no repetirlo la
-//      proxima vez que se recalcule la cola de esa misma cancha.
+//   4. Para el partido en juego / el que sigue / el que sigue despues
+//      del que sigue, si todavia no se avisaron: los avisa.
+//
+// IMPORTANTE — por que "reserva" el aviso antes de mandarlo:
+// mandar el push y RECIEN DESPUES marcar "ya avisado" es peligroso:
+// si algo falla en el medio (una red lenta, un reintento automatico
+// del propio sistema de webhooks), el marcador nunca queda guardado
+// y el mismo aviso se puede terminar mandando varias veces. Por eso
+// cada aviso primero intenta "reservarse" (poner el flag en true SOLO
+// si todavia estaba en false) y unicamente si gana esa carrera, recien
+// ahi manda el push. Así, pase lo que pase despues, no se puede
+// repetir.
 //
 // No hace falta que nadie llame a esta funcion a mano — el Database
 // Webhook la dispara sola. Solo sirve para pruebas manuales si hace
@@ -38,6 +43,20 @@ const VAPID_PRIVATE_KEY = Deno.env.get("VAPID_PRIVATE_KEY")!;
 const WEBHOOK_SECRET = Deno.env.get("MATCH_WEBHOOK_SECRET") || "";
 
 webpush.setVapidDetails("mailto:jntorres2014@gmail.com", VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+
+// Intenta "reservarse" un aviso: pone el flag en true SOLO si todavia
+// estaba en false. Devuelve true si esta invocacion gano la carrera
+// (es la unica que va a mandar ese aviso puntual).
+async function claim(admin, matchId, flagColumn) {
+  const { data, error } = await admin
+    .from("matches")
+    .update({ [flagColumn]: true })
+    .eq("id", matchId)
+    .eq(flagColumn, false)
+    .select("id");
+  if (error) throw error;
+  return (data || []).length > 0;
+}
 
 async function sendToPair(admin, pairId, payload) {
   if (!pairId) return;
@@ -70,6 +89,37 @@ function matchLabel(m) {
   return m.match_number ? `Partido ${m.match_number}` : "Tu partido";
 }
 
+// Nuestra propia funcion actualiza matches (para marcar los avisos
+// como enviados), y eso dispara el webhook de nuevo. Si el UNICO
+// cambio entre el antes y el despues son esos tres flags, no hace
+// falta procesar nada — ya se proceso en la invocacion original.
+function isOnlyNotifiedFlagsChanged(record, oldRecord) {
+  if (!record || !oldRecord) return false;
+  const ignore = new Set(["notified_started", "notified_1_before", "notified_2_before", "updated_at"]);
+  const keys = new Set([...Object.keys(record), ...Object.keys(oldRecord)]);
+  for (const key of keys) {
+    if (ignore.has(key)) continue;
+    if (record[key] !== oldRecord[key]) return false;
+  }
+  return true;
+}
+
+async function processMilestone(admin, m, flagColumn, title, bodyText) {
+  const won = await claim(admin, m.id, flagColumn);
+  if (!won) return false; // otra invocacion ya se encargo de este aviso
+  try {
+    await Promise.all([
+      sendToPair(admin, m.pair_a_id, { title, body: bodyText, url: "torneos.html" }),
+      sendToPair(admin, m.pair_b_id, { title, body: bodyText, url: "torneos.html" }),
+    ]);
+  } catch (err) {
+    // El flag ya quedo reservado (no se va a repetir), pero dejamos
+    // constancia del error para poder revisarlo en los logs.
+    console.error(`error mandando aviso (${flagColumn}) para partido ${m.id}:`, err);
+  }
+  return true;
+}
+
 Deno.serve(async (req) => {
   try {
     if (WEBHOOK_SECRET) {
@@ -81,11 +131,16 @@ Deno.serve(async (req) => {
 
     const payload = await req.json().catch(() => ({}));
     const record = payload.record || payload.new || null;
+    const oldRecord = payload.old_record || payload.old || null;
     const courtId = record?.court_id;
     const tournamentId = record?.tournament_id;
 
     if (!courtId || !tournamentId) {
       return new Response(JSON.stringify({ skipped: "sin cancha o sin torneo" }), { status: 200 });
+    }
+
+    if (isOnlyNotifiedFlagsChanged(record, oldRecord)) {
+      return new Response(JSON.stringify({ skipped: "solo cambiaron los flags de aviso" }), { status: 200 });
     }
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
@@ -103,62 +158,33 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: error.message }), { status: 500 });
     }
 
-    const results = { started: 0, oneBefore: 0, twoBefore: 0 };
+    const results = { started: false, oneBefore: false, twoBefore: false };
 
-    // Partido jugandose ahora en esta cancha, todavia no avisado.
     const playing = (queue || []).find((m) => m.computed_status === "playing" && !m.notified_started);
     if (playing) {
-      await Promise.all([
-        sendToPair(admin, playing.pair_a_id, {
-          title: "¡Arrancó tu partido!",
-          body: `${matchLabel(playing)} está arrancando ahora en tu cancha.`,
-          url: "torneos.html",
-        }),
-        sendToPair(admin, playing.pair_b_id, {
-          title: "¡Arrancó tu partido!",
-          body: `${matchLabel(playing)} está arrancando ahora en tu cancha.`,
-          url: "torneos.html",
-        }),
-      ]);
-      await admin.from("matches").update({ notified_started: true }).eq("id", playing.id);
-      results.started = 1;
+      results.started = await processMilestone(
+        admin, playing, "notified_started",
+        "¡Arrancó tu partido!",
+        `${matchLabel(playing)} está arrancando ahora en tu cancha.`
+      );
     }
 
-    // Primero y segundo en la cola de pendientes de esta cancha.
     const oneBefore = (queue || []).find((m) => m.position_in_queue === 1 && !m.notified_1_before);
     if (oneBefore) {
-      await Promise.all([
-        sendToPair(admin, oneBefore.pair_a_id, {
-          title: "Falta 1 partido para el tuyo",
-          body: `${matchLabel(oneBefore)} es el próximo en tu cancha.`,
-          url: "torneos.html",
-        }),
-        sendToPair(admin, oneBefore.pair_b_id, {
-          title: "Falta 1 partido para el tuyo",
-          body: `${matchLabel(oneBefore)} es el próximo en tu cancha.`,
-          url: "torneos.html",
-        }),
-      ]);
-      await admin.from("matches").update({ notified_1_before: true }).eq("id", oneBefore.id);
-      results.oneBefore = 1;
+      results.oneBefore = await processMilestone(
+        admin, oneBefore, "notified_1_before",
+        "Falta 1 partido para el tuyo",
+        `${matchLabel(oneBefore)} es el próximo en tu cancha.`
+      );
     }
 
     const twoBefore = (queue || []).find((m) => m.position_in_queue === 2 && !m.notified_2_before);
     if (twoBefore) {
-      await Promise.all([
-        sendToPair(admin, twoBefore.pair_a_id, {
-          title: "Faltan 2 partidos para el tuyo",
-          body: `${matchLabel(twoBefore)} va a jugarse dentro de 2 partidos en tu cancha.`,
-          url: "torneos.html",
-        }),
-        sendToPair(admin, twoBefore.pair_b_id, {
-          title: "Faltan 2 partidos para el tuyo",
-          body: `${matchLabel(twoBefore)} va a jugarse dentro de 2 partidos en tu cancha.`,
-          url: "torneos.html",
-        }),
-      ]);
-      await admin.from("matches").update({ notified_2_before: true }).eq("id", twoBefore.id);
-      results.twoBefore = 1;
+      results.twoBefore = await processMilestone(
+        admin, twoBefore, "notified_2_before",
+        "Faltan 2 partidos para el tuyo",
+        `${matchLabel(twoBefore)} va a jugarse dentro de 2 partidos en tu cancha.`
+      );
     }
 
     return new Response(JSON.stringify(results), { status: 200 });
