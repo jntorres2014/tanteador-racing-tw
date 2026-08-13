@@ -135,6 +135,17 @@
     background: #222b3a; color: #fff; font-weight: 700;
     border-radius: 12px; padding: 12px; font-size: 0.85rem;
   }
+
+  .filter-row { display: flex; gap: 8px; margin: 16px 0 8px; flex-wrap: wrap; }
+  .search-box {
+    flex: 2; min-width: 180px; padding: 10px 12px; border-radius: 10px; border: 2px solid #3a4256;
+    background: #1b2433; color: #fff; font-size: 0.85rem;
+  }
+  .search-box::placeholder { color: #8a94a6; }
+  .filter-row select {
+    flex: 1; min-width: 130px; padding: 10px 12px; border-radius: 10px; border: 2px solid #3a4256;
+    background: #1b2433; color: #fff; font-size: 0.85rem;
+  }
 </style>
 </head>
 <body>
@@ -148,6 +159,7 @@
   <div id="authBar"><div class="auth-bar">Cargando sesión...</div></div>
   <div id="adminActions" class="admin-actions hidden" style="display:none;">
     <a href="importar-fixture.html">📥 Importar fixture</a>
+    <a href="admin.html">👤 Usuarios</a>
   </div>
 
   <div id="content"><div class="empty">Cargando...</div></div>
@@ -235,6 +247,14 @@
   // ------------------------------------------------------------
   // Detalle de un torneo: partidos agrupados por categoría
   // ------------------------------------------------------------
+  let currentMatches = [];
+
+  function normalizeText(s) {
+    return String(s || "")
+      .toLowerCase()
+      .normalize("NFD").replace(/[̀-ͯ]/g, "");
+  }
+
   async function loadTournamentDetail(tournamentId) {
     const [{ data: tournament, error: tErr }, { data: matches, error: mErr }] = await Promise.all([
       client.from("tournaments").select("*, seasons(year)").eq("id", tournamentId).single(),
@@ -277,17 +297,7 @@
       return;
     }
 
-    // agrupar por categoria (display_order de la categoria si existe, sino nombre)
-    const groups = {};
-    matches.forEach((m) => {
-      const catName = m.categories ? m.categories.name : "Sin categoría";
-      const catOrder = m.categories ? (m.categories.display_order ?? 999) : 999;
-      const key = catName;
-      if (!groups[key]) groups[key] = { order: catOrder, matches: [] };
-      groups[key].matches.push(m);
-    });
-
-    const sortedGroupKeys = Object.keys(groups).sort((a, b) => groups[a].order - groups[b].order || a.localeCompare(b));
+    currentMatches = matches;
 
     const isAdmin = currentProfile && currentProfile.role === "admin";
     if (isAdmin && activeReferees === null) {
@@ -300,6 +310,70 @@
       activeReferees = refs || [];
     }
 
+    // categorias distintas presentes en este torneo, para el filtro
+    const catNames = [...new Set(matches.map((m) => m.categories ? m.categories.name : "Sin categoría"))];
+    const catOptions = catNames.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+
+    html += `
+      <div class="filter-row">
+        <input type="text" id="matchSearchBox" class="search-box" placeholder="Buscar por jugador, N° de partido, cancha..." oninput="renderMatchesSection()" />
+        <select id="matchCategoryFilter" onchange="renderMatchesSection()">
+          <option value="">Todas las categorías</option>
+          ${catOptions}
+        </select>
+      </div>
+      <div id="matchesSection"></div>
+    `;
+
+    document.getElementById("content").innerHTML = html;
+    renderMatchesSection();
+  }
+
+  function renderMatchesSection() {
+    const searchEl = document.getElementById("matchSearchBox");
+    const catEl = document.getElementById("matchCategoryFilter");
+    const term = normalizeText(searchEl ? searchEl.value.trim() : "");
+    const catFilter = catEl ? catEl.value : "";
+
+    const isAdmin = currentProfile && currentProfile.role === "admin";
+
+    let matches = currentMatches;
+    if (catFilter) {
+      matches = matches.filter((m) => (m.categories ? m.categories.name : "Sin categoría") === catFilter);
+    }
+    if (term) {
+      matches = matches.filter((m) => {
+        const haystack = [
+          m.team_a_name, m.team_b_name,
+          m.match_number != null ? `partido ${m.match_number}` : "",
+          m.courts ? m.courts.name : "",
+          m.categories ? m.categories.name : "",
+        ].map(normalizeText).join(" | ");
+        return haystack.includes(term);
+      });
+    }
+
+    const sectionEl = document.getElementById("matchesSection");
+    if (!sectionEl) return;
+
+    if (matches.length === 0) {
+      sectionEl.innerHTML = '<div class="empty">No encontré ningún partido que coincida.</div>';
+      return;
+    }
+
+    // agrupar por categoria (display_order de la categoria si existe, sino nombre)
+    const groups = {};
+    matches.forEach((m) => {
+      const catName = m.categories ? m.categories.name : "Sin categoría";
+      const catOrder = m.categories ? (m.categories.display_order ?? 999) : 999;
+      const key = catName;
+      if (!groups[key]) groups[key] = { order: catOrder, matches: [] };
+      groups[key].matches.push(m);
+    });
+
+    const sortedGroupKeys = Object.keys(groups).sort((a, b) => groups[a].order - groups[b].order || a.localeCompare(b));
+
+    let html = "";
     sortedGroupKeys.forEach((catName) => {
       html += `<h3 class="group-title">Categoría ${escapeHtml(catName)}</h3>`;
       groups[catName].matches
@@ -314,7 +388,7 @@
           let refereeRow = "";
           if (isAdmin) {
             const options = [`<option value="">Sin asignar</option>`]
-              .concat(activeReferees.map((r) => {
+              .concat((activeReferees || []).map((r) => {
                 const label = escapeHtml(r.full_name || r.email);
                 const selected = r.id === m.referee_user_id ? "selected" : "";
                 return `<option value="${r.id}" ${selected}>${label}</option>`;
@@ -347,7 +421,7 @@
         });
     });
 
-    document.getElementById("content").innerHTML = html;
+    sectionEl.innerHTML = html;
   }
 
   async function asignarArbitro(matchId, refereeId, selectEl) {

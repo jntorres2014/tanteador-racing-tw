@@ -33,6 +33,12 @@
     color: #8a94a6; margin: 24px 0 10px;
   }
 
+  .search-box {
+    width: 100%; padding: 11px 14px; border-radius: 12px; border: 2px solid #3a4256;
+    background: #1b2433; color: #fff; font-size: 0.9rem; margin-bottom: 4px;
+  }
+  .search-box::placeholder { color: #8a94a6; }
+
   .match-card {
     background: #1b2433; border-radius: 14px; padding: 14px 16px;
     margin-bottom: 10px; border: 2px solid #3a4256;
@@ -137,6 +143,7 @@
   </div>
 
   <h2 class="section-title">Partidos activos</h2>
+  <input type="text" id="searchBox" class="search-box" placeholder="Buscar por jugador, cancha, categoría, partido N°..." oninput="applyFilterAndRender()" />
   <div id="activeList"><div class="empty">Cargando...</div></div>
 </div>
 
@@ -225,10 +232,12 @@
     window.location.href = `control.html?m=${id}`;
   }
 
-  function renderList(matches) {
+  function renderList(matches, searchTerm) {
     const el = document.getElementById("activeList");
     if (!matches || matches.length === 0) {
-      el.innerHTML = '<div class="empty">No hay partidos activos. Creá uno nuevo arriba.</div>';
+      el.innerHTML = searchTerm
+        ? '<div class="empty">No encontré ningún partido activo que coincida con la búsqueda.</div>'
+        : '<div class="empty">No hay partidos activos. Creá uno nuevo arriba.</div>';
       return;
     }
     el.innerHTML = matches.map((m) => `
@@ -250,13 +259,52 @@
     return String(s || "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
   }
 
+  function normalizeText(s) {
+    return String(s || "")
+      .toLowerCase()
+      .normalize("NFD").replace(/[̀-ͯ]/g, ""); // saca acentos
+  }
+
+  let allActiveMatches = [];
+
+  function applyFilterAndRender() {
+    const term = normalizeText(document.getElementById("searchBox").value.trim());
+    if (!term) {
+      renderList(allActiveMatches);
+      return;
+    }
+    const filtered = allActiveMatches.filter((m) => {
+      const haystack = [
+        m.label, m.team_a_name, m.team_b_name,
+        m.match_number != null ? `partido ${m.match_number}` : "",
+        m.categories ? m.categories.name : "",
+      ].map(normalizeText).join(" | ");
+      return haystack.includes(term);
+    });
+    renderList(filtered, term);
+  }
+
   async function loadActive() {
     const { data } = await client
       .from("matches")
-      .select("*")
+      .select("*, categories(name)")
       .eq("is_finished", false)
       .order("updated_at", { ascending: false });
-    renderList(data);
+
+    // Orden por N° de partido (los de torneo primero, de menor a mayor).
+    // Los partidos sueltos (sin match_number, como los de "+ Nuevo
+    // partido") no tienen numero, asi que quedan al final, ordenados
+    // por la ultima actividad como antes.
+    const sorted = (data || []).slice().sort((a, b) => {
+      const an = a.match_number, bn = b.match_number;
+      if (an != null && bn != null) return an - bn;
+      if (an != null) return -1;
+      if (bn != null) return 1;
+      return new Date(b.updated_at) - new Date(a.updated_at);
+    });
+
+    allActiveMatches = sorted;
+    applyFilterAndRender();
   }
 
   client
