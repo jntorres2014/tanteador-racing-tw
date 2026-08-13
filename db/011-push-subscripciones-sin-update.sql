@@ -1,0 +1,21 @@
+-- ============================================================
+-- PLATAFORMA DE TORNEOS — 11. Sacar el permiso de UPDATE abierto
+-- ============================================================
+-- La migracion 010 agrego un permiso de UPDATE publico (using(true))
+-- para push_subscriptions, pensado para que el "upsert" del boton
+-- Avisarme funcionara. Pero el upsert necesitaba ademas poder LEER
+-- la fila existente para decidir si actualizarla, y la lectura sigue
+-- (a proposito) restringida solo a admin — asi que el UPDATE abierto
+-- no solucionaba nada y encima dejaba una puerta innecesaria: con esa
+-- policy, cualquiera podia sobrescribir el endpoint/las claves de
+-- CUALQUIER suscripcion ya guardada.
+--
+-- La solucion real fue cambiar el codigo del boton (torneos.html)
+-- para que en vez de "insertar o actualizar" simplemente intente
+-- insertar, y si ya existia esa misma suscripcion (mismo navegador +
+-- misma pareja), lo tome como exito sin necesitar tocar la fila.
+--
+-- Esta migracion saca el permiso de UPDATE que ya no hace falta.
+-- ============================================================
+
+drop policy if exists "push_subscriptions: cualquiera actualiza su suscripcion" on push_subscriptions;
