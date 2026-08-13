@@ -4,6 +4,8 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="theme-color" content="#0b1320" />
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="logo.png" />
 <title>Racing Club TW — Torneos</title>
 <style>
   * { box-sizing: border-box; }
@@ -153,6 +155,24 @@
     flex: 1; min-width: 130px; padding: 10px 12px; border-radius: 10px; border: 2px solid #3a4256;
     background: #1b2433; color: #fff; font-size: 0.85rem;
   }
+
+  .tab-row { display: flex; gap: 8px; margin-bottom: 4px; }
+  .tab-btn {
+    flex: 1; padding: 10px; border-radius: 10px; border: 2px solid #3a4256;
+    background: #1b2433; color: #8a94a6; font-weight: 700; font-size: 0.85rem; cursor: pointer;
+  }
+  .tab-btn.active { border-color: #3fa9f5; color: #fff; }
+  .hidden-tab { display: none; }
+
+  .player-card {
+    background: #1b2433; border-radius: 14px; padding: 12px 16px;
+    margin-bottom: 9px; border: 2px solid #3a4256;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  }
+  .player-name { font-weight: 700; font-size: 0.92rem; }
+  .player-status { color: #8a94a6; font-size: 0.78rem; margin-top: 2px; }
+  .player-status.is-live { color: #ff4b4b; }
+  .player-status.is-finished { color: #5adc8c; }
 </style>
 </head>
 <body>
@@ -316,6 +336,8 @@
   // Detalle de un torneo: partidos agrupados por categoría
   // ------------------------------------------------------------
   let currentMatches = [];
+  let currentPairs = [];
+  let activeTab = "matches"; // "matches" | "players"
 
   function normalizeText(s) {
     return String(s || "")
@@ -324,12 +346,16 @@
   }
 
   async function loadTournamentDetail(tournamentId) {
-    const [{ data: tournament, error: tErr }, { data: matches, error: mErr }] = await Promise.all([
+    const [{ data: tournament, error: tErr }, { data: matches, error: mErr }, { data: pairs, error: pErr }] = await Promise.all([
       client.from("tournaments").select("*, seasons(year)").eq("id", tournamentId).single(),
       client.from("matches")
         .select("*, categories(name, display_order), courts(name)")
         .eq("tournament_id", tournamentId)
         .order("match_number", { ascending: true }),
+      client.from("tournament_pairs")
+        .select("*, categories(name, display_order)")
+        .eq("tournament_id", tournamentId)
+        .order("display_name", { ascending: true }),
     ]);
 
     if (tErr || !tournament) {
@@ -359,13 +385,8 @@
       </div>
     `;
 
-    if (!matches || matches.length === 0) {
-      html += '<div class="empty">Este torneo todavía no tiene partidos cargados.</div>';
-      document.getElementById("content").innerHTML = html;
-      return;
-    }
-
-    currentMatches = matches;
+    currentMatches = matches || [];
+    currentPairs = pairs || [];
 
     const isAdmin = currentProfile && currentProfile.role === "admin";
     if (isAdmin && activeReferees === null) {
@@ -378,23 +399,136 @@
       activeReferees = refs || [];
     }
 
-    // categorias distintas presentes en este torneo, para el filtro
-    const catNames = [...new Set(matches.map((m) => m.categories ? m.categories.name : "Sin categoría"))];
+    // categorias distintas presentes en este torneo, para los filtros
+    const catNames = [...new Set(
+      currentMatches.map((m) => m.categories ? m.categories.name : "Sin categoría")
+        .concat(currentPairs.map((p) => p.categories ? p.categories.name : "Sin categoría"))
+    )];
     const catOptions = catNames.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
 
     html += `
-      <div class="filter-row">
-        <input type="text" id="matchSearchBox" class="search-box" placeholder="Buscar por jugador, N° de partido, cancha..." oninput="renderMatchesSection()" />
-        <select id="matchCategoryFilter" onchange="renderMatchesSection()">
-          <option value="">Todas las categorías</option>
-          ${catOptions}
-        </select>
+      <div class="tab-row">
+        <button class="tab-btn active" id="tabBtnMatches" onclick="switchTab('matches')">Partidos</button>
+        <button class="tab-btn" id="tabBtnPlayers" onclick="switchTab('players')">Jugadores</button>
       </div>
-      <div id="matchesSection"></div>
+
+      <div id="matchesTab">
+        <div class="filter-row">
+          <input type="text" id="matchSearchBox" class="search-box" placeholder="Buscar por jugador, N° de partido, cancha..." oninput="renderMatchesSection()" />
+          <select id="matchCategoryFilter" onchange="renderMatchesSection()">
+            <option value="">Todas las categorías</option>
+            ${catOptions}
+          </select>
+        </div>
+        <div id="matchesSection"></div>
+      </div>
+
+      <div id="playersTab" class="hidden-tab">
+        <div class="filter-row">
+          <input type="text" id="playerSearchBox" class="search-box" placeholder="Buscar jugador o pareja..." oninput="renderPlayersSection()" />
+          <select id="playerCategoryFilter" onchange="renderPlayersSection()">
+            <option value="">Todas las categorías</option>
+            ${catOptions}
+          </select>
+        </div>
+        <div id="playersSection"></div>
+      </div>
     `;
 
+    if (currentMatches.length === 0 && currentPairs.length === 0) {
+      html += '<div class="empty">Este torneo todavía no tiene partidos ni parejas cargadas.</div>';
+    }
+
     document.getElementById("content").innerHTML = html;
+    if (currentMatches.length === 0 && currentPairs.length === 0) return;
+
+    activeTab = "matches";
     renderMatchesSection();
+    renderPlayersSection();
+  }
+
+  function switchTab(tab) {
+    activeTab = tab;
+    document.getElementById("tabBtnMatches").classList.toggle("active", tab === "matches");
+    document.getElementById("tabBtnPlayers").classList.toggle("active", tab === "players");
+    document.getElementById("matchesTab").classList.toggle("hidden-tab", tab !== "matches");
+    document.getElementById("playersTab").classList.toggle("hidden-tab", tab !== "players");
+  }
+
+  // ------------------------------------------------------------
+  // Estado actual de una pareja, en base a sus partidos en este torneo.
+  // ------------------------------------------------------------
+  function pairStatus(pairId) {
+    const pairMatches = currentMatches.filter((m) => m.pair_a_id === pairId || m.pair_b_id === pairId);
+    if (pairMatches.length === 0) return { text: "Todavía sin partido asignado", cls: "" };
+
+    const live = pairMatches.find((m) => m.is_live && !m.is_finished);
+    if (live) {
+      const courtTxt = live.courts ? ` en ${live.courts.name}` : "";
+      return { text: `🔴 Jugando ahora${courtTxt} — Partido ${live.match_number ?? ""}`, cls: "is-live" };
+    }
+
+    const pending = pairMatches
+      .filter((m) => !m.is_finished)
+      .sort((a, b) => (a.match_number ?? 999) - (b.match_number ?? 999))[0];
+    if (pending) {
+      const courtTxt = pending.courts ? ` · ${pending.courts.name}` : "";
+      return { text: `Próximo: Partido ${pending.match_number ?? "?"}${courtTxt}`, cls: "" };
+    }
+
+    return { text: "Finalizó su participación", cls: "is-finished" };
+  }
+
+  function renderPlayersSection() {
+    const searchEl = document.getElementById("playerSearchBox");
+    const catEl = document.getElementById("playerCategoryFilter");
+    const term = normalizeText(searchEl ? searchEl.value.trim() : "");
+    const catFilter = catEl ? catEl.value : "";
+
+    let pairs = currentPairs;
+    if (catFilter) {
+      pairs = pairs.filter((p) => (p.categories ? p.categories.name : "Sin categoría") === catFilter);
+    }
+    if (term) {
+      pairs = pairs.filter((p) => normalizeText(p.display_name).includes(term));
+    }
+
+    const sectionEl = document.getElementById("playersSection");
+    if (!sectionEl) return;
+
+    if (pairs.length === 0) {
+      sectionEl.innerHTML = '<div class="empty">No encontré ningún jugador/pareja que coincida.</div>';
+      return;
+    }
+
+    // agrupar por categoria
+    const groups = {};
+    pairs.forEach((p) => {
+      const catName = p.categories ? p.categories.name : "Sin categoría";
+      const catOrder = p.categories ? (p.categories.display_order ?? 999) : 999;
+      if (!groups[catName]) groups[catName] = { order: catOrder, pairs: [] };
+      groups[catName].pairs.push(p);
+    });
+    const sortedGroupKeys = Object.keys(groups).sort((a, b) => groups[a].order - groups[b].order || a.localeCompare(b));
+
+    let html = "";
+    sortedGroupKeys.forEach((catName) => {
+      html += `<h3 class="group-title">Categoría ${escapeHtml(catName)}</h3>`;
+      groups[catName].pairs.forEach((p) => {
+        const status = pairStatus(p.id);
+        html += `
+          <div class="player-card">
+            <div>
+              <div class="player-name">${escapeHtml(p.display_name)}</div>
+              <div class="player-status ${status.cls}">${escapeHtml(status.text)}</div>
+            </div>
+            <button class="bell-btn" title="Avisarme sobre ${escapeHtml(p.display_name)}" onclick="subscribeToPair('${p.id}', this)">🔔</button>
+          </div>
+        `;
+      });
+    });
+
+    sectionEl.innerHTML = html;
   }
 
   function renderMatchesSection() {
