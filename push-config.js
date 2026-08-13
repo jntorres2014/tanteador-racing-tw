@@ -9,4 +9,4 @@
 // (la funcion que efectivamente manda los avisos) y se guarda aparte,
 // como secreto de Supabase.
 // ============================================================
-const VAPID_PUBLIC_KEY = "BLbOSmo9iw2XGvW5R3uiG8MIU3iQJdlEC9VNdnF5Ti43EHhgk7NwA2cQJBK9wG5aFeduW_owuURSACc4VRUiV9A";
+const VAPID_PUBLIC_KEY = "BErwLQJ-oX7ODBJdDdt8zmy-AFohvPMn3b0mO-KOX5b7aLTXzSjXUd6TzsVfbV3j0L73e97s5ZIkphys50U3Puk";

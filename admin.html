@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#0b1320" />
+<title>Racing Club TW — Administración</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; min-height: 100vh;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #0b1320; color: #fff;
+  }
+  body { display: flex; justify-content: center; padding: 20px; }
+  .wrap { width: 100%; max-width: 640px; }
+
+  .top-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+  .back-link { color: #8a94a6; text-decoration: none; font-size: 0.85rem; }
+  h1 { font-size: 1.05rem; text-transform: uppercase; letter-spacing: 1.5px; margin: 0; text-align: center; flex: 1; }
+
+  .empty { text-align: center; color: #8a94a6; padding: 30px 10px; font-size: 0.9rem; }
+
+  h3.group-title {
+    font-size: 0.82rem; text-transform: uppercase; letter-spacing: 1.5px;
+    color: #8a94a6; margin: 22px 0 10px;
+  }
+
+  .user-card {
+    background: #1b2433; border-radius: 14px; padding: 14px 16px;
+    margin-bottom: 10px; border: 2px solid #3a4256;
+  }
+  .user-card.pending { border-color: #ff9d4b; }
+  .user-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .user-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+  .user-avatar-fallback {
+    display: flex; align-items: center; justify-content: center;
+    background: #3fa9f5; color: #fff; font-weight: 700; font-size: 1.1rem;
+  }
+  .user-name { font-weight: 700; font-size: 0.95rem; }
+  .user-email { color: #8a94a6; font-size: 0.78rem; }
+  .pending-badge {
+    margin-left: auto; background: rgba(255,157,75,0.15); color: #ff9d4b;
+    font-size: 0.68rem; font-weight: 700; padding: 3px 8px; border-radius: 10px; white-space: nowrap;
+  }
+
+  .user-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .user-row select {
+    padding: 8px 10px; border-radius: 8px; border: none;
+    background: #222b3a; color: #fff; font-size: 0.82rem;
+  }
+  .user-row button {
+    border: none; border-radius: 8px; padding: 8px 12px; font-weight: 600;
+    font-size: 0.8rem; cursor: pointer;
+  }
+  .btn-activate { background: #3fd976; color: #0b1320; }
+  .btn-deactivate { background: #3a4256; color: #fff; }
+  .btn-mail { background: #3fa9f5; color: #fff; }
+  .btn-mail:disabled { opacity: 0.5; cursor: not-allowed; }
+  .mail-status { font-size: 0.75rem; margin-top: 6px; }
+  .mail-status.ok { color: #3fd976; }
+  .mail-status.err { color: #ff4b4b; }
+
+  /* Barra de login (auth.js) */
+  .auth-bar {
+    background: #1b2433; border-radius: 12px; padding: 10px 14px;
+    margin-bottom: 16px; border: 2px solid #3a4256;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .auth-bar-out { padding: 14px; }
+  .auth-btn-google {
+    width: 100%; background: #fff; color: #1a1a1a; border: none;
+    border-radius: 10px; padding: 12px; font-weight: 700; font-size: 0.92rem;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .auth-google-g {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 18px; border-radius: 50%; background: #4285F4;
+    color: #fff; font-size: 0.72rem; font-weight: 900;
+  }
+  .auth-bar-in { justify-content: space-between; }
+  .auth-user { display: flex; align-items: center; gap: 10px; }
+  .auth-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
+  .auth-avatar-fallback {
+    display: flex; align-items: center; justify-content: center;
+    background: #3fa9f5; color: #fff; font-weight: 700; font-size: 0.95rem;
+  }
+  .auth-name { font-weight: 600; font-size: 0.88rem; text-align: left; }
+  .auth-role { font-size: 0.72rem; color: #8a94a6; margin-top: 1px; }
+  .auth-role-admin { color: #ffcc00; font-weight: 600; }
+  .auth-pending { font-size: 0.72rem; color: #ff9d4b; margin-top: 1px; }
+  .auth-btn-logout {
+    background: #3a4256; color: #fff; border: none; border-radius: 8px;
+    padding: 8px 14px; font-size: 0.8rem; font-weight: 600; cursor: pointer;
+  }
+
+  .access-blocked {
+    background: #1b2433; border-radius: 14px; padding: 20px; text-align: center;
+    border: 2px solid #ff9d4b; color: #bcc4d1; font-size: 0.88rem;
+  }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top-row">
+    <a href="torneos.html" class="back-link">← Torneos</a>
+    <h1>Administración</h1>
+    <span style="width:60px"></span>
+  </div>
+
+  <div id="authBar"><div class="auth-bar">Cargando sesión...</div></div>
+  <div id="accessBlocked" class="access-blocked hidden"></div>
+
+  <div id="adminContent" class="hidden">
+    <div style="margin-bottom:14px; text-align:right;">
+      <button class="btn-mail" onclick="probarPush(this)">🔔 Probar notificación push</button>
+    </div>
+    <div id="content"><div class="empty">Cargando usuarios...</div></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script src="auth.js"></script>
+<script>
+  var client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  function escapeHtml(s) {
+    return String(s || "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+  }
+
+  // ------------------------------------------------------------
+  // Solo un admin puede ver esta pantalla.
+  // ------------------------------------------------------------
+  async function checkAdminAccess() {
+    const { session, profile } = await authRenderInto("authBar");
+    const blockedEl = document.getElementById("accessBlocked");
+    const contentEl = document.getElementById("adminContent");
+
+    let allowed = false;
+    let msg = "";
+    if (!session) {
+      msg = "Iniciá sesión con Google (como admin) para ver esta pantalla.";
+    } else if (!profile || !profile.active) {
+      msg = "Tu cuenta todavía no fue activada por un admin.";
+    } else if (profile.role !== "admin") {
+      msg = "Solo un administrador puede ver esta pantalla.";
+    } else {
+      allowed = true;
+    }
+
+    if (allowed) {
+      blockedEl.classList.add("hidden");
+      contentEl.classList.remove("hidden");
+      loadUsers();
+    } else {
+      blockedEl.textContent = msg;
+      blockedEl.classList.remove("hidden");
+      contentEl.classList.add("hidden");
+    }
+    return allowed;
+  }
+
+  async function loadUsers() {
+    const { data: users, error } = await client
+      .from("profiles")
+      .select("*")
+      .order("active", { ascending: true })   // pendientes (active=false) primero
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      document.getElementById("content").innerHTML =
+        `<div class="empty">No se pudo cargar: ${escapeHtml(error.message)}</div>`;
+      return;
+    }
+    if (!users || users.length === 0) {
+      document.getElementById("content").innerHTML =
+        '<div class="empty">Todavía nadie inició sesión.</div>';
+      return;
+    }
+
+    document.getElementById("content").innerHTML = users.map((u) => {
+      const name = escapeHtml(u.full_name || u.email || "(sin nombre)");
+      const email = escapeHtml(u.email || "");
+      const initial = (u.full_name || u.email || "?").charAt(0).toUpperCase();
+      const avatar = u.avatar_url
+        ? `<img src="${escapeHtml(u.avatar_url)}" class="user-avatar" alt="" />`
+        : `<div class="user-avatar user-avatar-fallback">${initial}</div>`;
+      const pendingBadge = !u.active ? '<div class="pending-badge">Pendiente</div>' : '';
+
+      return `
+        <div class="user-card ${!u.active ? 'pending' : ''}" id="user-${u.id}">
+          <div class="user-top">
+            ${avatar}
+            <div>
+              <div class="user-name">${name}</div>
+              <div class="user-email">${email}</div>
+            </div>
+            ${pendingBadge}
+          </div>
+          <div class="user-row">
+            <select onchange="cambiarRol('${u.id}', this.value)">
+              <option value="referee" ${u.role === "referee" ? "selected" : ""}>Árbitro</option>
+              <option value="admin" ${u.role === "admin" ? "selected" : ""}>Administrador</option>
+            </select>
+            ${u.active
+              ? `<button class="btn-deactivate" onclick="cambiarActivo('${u.id}', false)">Desactivar</button>`
+              : `<button class="btn-activate" onclick="cambiarActivo('${u.id}', true)">Activar</button>`}
+            <button class="btn-mail" onclick="enviarMailBienvenida('${u.id}', this)">✉️ Enviar mail</button>
+          </div>
+          <div class="mail-status" id="mailstatus-${u.id}"></div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  async function cambiarActivo(userId, active) {
+    const { error } = await client.from("profiles").update({ active }).eq("id", userId);
+    if (error) {
+      alert("No se pudo actualizar: " + error.message);
+      return;
+    }
+    loadUsers();
+  }
+
+  async function cambiarRol(userId, role) {
+    const { error } = await client.from("profiles").update({ role }).eq("id", userId);
+    if (error) {
+      alert("No se pudo cambiar el rol: " + error.message);
+      loadUsers();
+      return;
+    }
+  }
+
+  // ------------------------------------------------------------
+  // Manda el mail de bienvenida a traves de una funcion en Supabase
+  // (Edge Function "notify-referee"). Si esa funcion todavia no esta
+  // desplegada, avisa con un mensaje claro en vez de fallar en silencio.
+  // ------------------------------------------------------------
+  async function enviarMailBienvenida(userId, btnEl) {
+    const statusEl = document.getElementById(`mailstatus-${userId}`);
+    btnEl.disabled = true;
+    statusEl.textContent = "Enviando...";
+    statusEl.className = "mail-status";
+
+    const { data, error } = await client.functions.invoke("notify-referee", {
+      body: { profile_id: userId },
+    });
+
+    btnEl.disabled = false;
+    if (error) {
+      statusEl.textContent = "No se pudo enviar (" + (error.message || "función no disponible todavía") + ")";
+      statusEl.className = "mail-status err";
+      return;
+    }
+    statusEl.textContent = "Mail enviado ✓";
+    statusEl.className = "mail-status ok";
+  }
+
+  // ------------------------------------------------------------
+  // Manda una notificacion de PRUEBA a todas las suscripciones push
+  // guardadas (Edge Function "send-test-push"). Sirve para confirmar
+  // que la fontaneria completa (claves VAPID + service worker +
+  // navegador) funciona antes de conectar el aviso automatico.
+  // ------------------------------------------------------------
+  async function probarPush(btnEl) {
+    btnEl.disabled = true;
+    const original = btnEl.textContent;
+    btnEl.textContent = "Enviando...";
+
+    const { data, error } = await client.functions.invoke("send-test-push", { body: {} });
+
+    btnEl.disabled = false;
+    btnEl.textContent = original;
+
+    if (error) {
+      alert("No se pudo enviar (" + (error.message || "función no disponible todavía") + ")");
+      return;
+    }
+    alert(`Prueba enviada. Enviados: ${data.sent}, fallidos: ${data.failed}, suscripciones vencidas eliminadas: ${data.deleted}`);
+  }
+
+  checkAdminAccess();
+  authWatch("authBar", checkAdminAccess);
+</script>
+</body>
+</html>
