@@ -562,7 +562,14 @@
   async function toggleLive() {
     const youtubeUrl = document.getElementById("youtubeUrl").value.trim();
     const newIsLive = !currentState.is_live;
-    writeState({ is_live: newIsLive, youtube_url: youtubeUrl });
+    const patch = { is_live: newIsLive, youtube_url: youtubeUrl };
+    // La primera vez que un partido de torneo se marca EN VIVO, guardamos
+    // cuando arrancó de verdad — la cola de cancha (para los avisos de
+    // "2 partidos antes / 1 antes / ahora") se calcula con este dato.
+    if (newIsLive && currentState.tournament_id && !currentState.actual_started_at) {
+      patch.actual_started_at = new Date().toISOString();
+    }
+    writeState(patch);
   }
   document.getElementById("youtubeUrl").addEventListener("change", (e) => {
     writeState({ youtube_url: e.target.value.trim() });
