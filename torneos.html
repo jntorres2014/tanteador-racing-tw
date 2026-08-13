@@ -85,6 +85,56 @@
     padding: 8px; border-radius: 8px;
   }
   .link-control { background: #3fa9f5; color: #fff; }
+
+  .referee-row {
+    display: flex; align-items: center; gap: 8px; margin-top: 8px;
+    padding-top: 8px; border-top: 1px solid #2a3448;
+  }
+  .referee-row label { font-size: 0.75rem; color: #8a94a6; white-space: nowrap; }
+  .referee-row select {
+    flex: 1; padding: 6px 8px; border-radius: 8px; border: none;
+    background: #222b3a; color: #fff; font-size: 0.8rem;
+  }
+
+  /* Barra de login (auth.js) */
+  .auth-bar {
+    background: #1b2433; border-radius: 12px; padding: 10px 14px;
+    margin-bottom: 16px; border: 2px solid #3a4256;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .auth-bar-out { padding: 14px; }
+  .auth-btn-google {
+    width: 100%; background: #fff; color: #1a1a1a; border: none;
+    border-radius: 10px; padding: 12px; font-weight: 700; font-size: 0.92rem;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .auth-google-g {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 18px; border-radius: 50%; background: #4285F4;
+    color: #fff; font-size: 0.72rem; font-weight: 900;
+  }
+  .auth-bar-in { justify-content: space-between; }
+  .auth-user { display: flex; align-items: center; gap: 10px; }
+  .auth-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
+  .auth-avatar-fallback {
+    display: flex; align-items: center; justify-content: center;
+    background: #3fa9f5; color: #fff; font-weight: 700; font-size: 0.95rem;
+  }
+  .auth-name { font-weight: 600; font-size: 0.88rem; text-align: left; }
+  .auth-role { font-size: 0.72rem; color: #8a94a6; margin-top: 1px; }
+  .auth-role-admin { color: #ffcc00; font-weight: 600; }
+  .auth-pending { font-size: 0.72rem; color: #ff9d4b; margin-top: 1px; }
+  .auth-btn-logout {
+    background: #3a4256; color: #fff; border: none; border-radius: 8px;
+    padding: 8px 14px; font-size: 0.8rem; font-weight: 600; cursor: pointer;
+  }
+
+  .admin-actions { display: flex; gap: 10px; margin-bottom: 16px; }
+  .admin-actions a {
+    flex: 1; text-align: center; text-decoration: none;
+    background: #222b3a; color: #fff; font-weight: 700;
+    border-radius: 12px; padding: 12px; font-size: 0.85rem;
+  }
 </style>
 </head>
 <body>
@@ -95,13 +145,22 @@
     <span style="width:50px"></span>
   </div>
 
+  <div id="authBar"><div class="auth-bar">Cargando sesión...</div></div>
+  <div id="adminActions" class="admin-actions hidden" style="display:none;">
+    <a href="importar-fixture.html">📥 Importar fixture</a>
+  </div>
+
   <div id="content"><div class="empty">Cargando...</div></div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
+<script src="auth.js"></script>
 <script>
   var client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  let currentProfile = null;
+  let activeReferees = null; // se carga solo si hace falta (admin viendo el detalle)
 
   const STATUS_LABEL = {
     draft: "Borrador",
@@ -230,6 +289,17 @@
 
     const sortedGroupKeys = Object.keys(groups).sort((a, b) => groups[a].order - groups[b].order || a.localeCompare(b));
 
+    const isAdmin = currentProfile && currentProfile.role === "admin";
+    if (isAdmin && activeReferees === null) {
+      const { data: refs } = await client
+        .from("profiles")
+        .select("id, full_name, email")
+        .eq("role", "referee")
+        .eq("active", true)
+        .order("full_name", { ascending: true });
+      activeReferees = refs || [];
+    }
+
     sortedGroupKeys.forEach((catName) => {
       html += `<h3 class="group-title">Categoría ${escapeHtml(catName)}</h3>`;
       groups[catName].matches
@@ -240,6 +310,25 @@
             ? '<span class="finished-tag">Finalizado</span>'
             : (m.is_live ? '<span class="live-tag">🔴 EN VIVO</span>' : '<span class="pending-tag">Pendiente</span>');
           const courtTxt = m.courts ? ` · ${escapeHtml(m.courts.name)}` : "";
+
+          let refereeRow = "";
+          if (isAdmin) {
+            const options = [`<option value="">Sin asignar</option>`]
+              .concat(activeReferees.map((r) => {
+                const label = escapeHtml(r.full_name || r.email);
+                const selected = r.id === m.referee_user_id ? "selected" : "";
+                return `<option value="${r.id}" ${selected}>${label}</option>`;
+              }));
+            refereeRow = `
+              <div class="referee-row">
+                <label>Árbitro:</label>
+                <select onchange="asignarArbitro('${m.id}', this.value, this)">
+                  ${options.join("")}
+                </select>
+              </div>
+            `;
+          }
+
           html += `
             <div class="match-card ${statusClass}">
               <div class="match-top">
@@ -252,12 +341,29 @@
               <div class="match-links">
                 <a class="link-control" href="control.html?m=${m.id}">${m.is_finished ? "Ver / corregir" : "Cargar resultado"}</a>
               </div>
+              ${refereeRow}
             </div>
           `;
         });
     });
 
     document.getElementById("content").innerHTML = html;
+  }
+
+  async function asignarArbitro(matchId, refereeId, selectEl) {
+    const previousValue = selectEl.dataset.prev || "";
+    selectEl.disabled = true;
+    const { error } = await client
+      .from("matches")
+      .update({ referee_user_id: refereeId || null })
+      .eq("id", matchId);
+    selectEl.disabled = false;
+    if (error) {
+      alert("No se pudo asignar: " + error.message);
+      selectEl.value = previousValue;
+      return;
+    }
+    selectEl.dataset.prev = refereeId;
   }
 
   async function publicarTorneo(id) {
@@ -270,7 +376,18 @@
     loadTournamentDetail(id);
   }
 
-  function render() {
+  function updateAdminActions() {
+    const el = document.getElementById("adminActions");
+    const isAdmin = currentProfile && currentProfile.role === "admin";
+    el.style.display = isAdmin ? "flex" : "none";
+  }
+
+  async function render() {
+    const { profile } = await authRenderInto("authBar");
+    currentProfile = profile;
+    activeReferees = null; // se vuelve a cargar si cambia de admin o de torneo
+    updateAdminActions();
+
     const tId = getTournamentIdFromUrl();
     document.getElementById("content").innerHTML = '<div class="empty">Cargando...</div>';
     if (tId) {
@@ -281,6 +398,7 @@
   }
 
   window.addEventListener("popstate", render);
+  authWatch("authBar", render);
   render();
 </script>
 </body>
