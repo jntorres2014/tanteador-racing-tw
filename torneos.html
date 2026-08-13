@@ -96,6 +96,13 @@
     background: #222b3a; color: #fff; font-size: 0.8rem;
   }
 
+  .bell-btn {
+    background: none; border: none; cursor: pointer; font-size: 0.85rem;
+    padding: 0 2px; opacity: 0.6; vertical-align: middle;
+  }
+  .bell-btn:hover { opacity: 1; }
+  .bell-btn.subscribed { opacity: 1; }
+
   /* Barra de login (auth.js) */
   .auth-bar {
     background: #1b2433; border-radius: 12px; padding: 10px 14px;
@@ -167,12 +174,70 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
+<script src="push-config.js"></script>
 <script src="auth.js"></script>
 <script>
   var client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   let currentProfile = null;
   let activeReferees = null; // se carga solo si hace falta (admin viendo el detalle)
+
+  // ------------------------------------------------------------
+  // Suscribirse a los avisos de una pareja. Paso 1: solo pide permiso
+  // y guarda la suscripcion en la base. Nada manda avisos todavia
+  // (eso es el proximo paso).
+  // ------------------------------------------------------------
+  function urlBase64ToUint8Array(base64String) {
+    const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+    const rawData = atob(base64);
+    return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
+  }
+
+  async function getOrCreatePushSubscription() {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+      throw new Error("Este navegador no soporta notificaciones push.");
+    }
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") {
+      throw new Error("No diste permiso para las notificaciones.");
+    }
+    const registration = await navigator.serviceWorker.register("sw.js");
+    await navigator.serviceWorker.ready;
+    let subscription = await registration.pushManager.getSubscription();
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+    }
+    return subscription;
+  }
+
+  async function subscribeToPair(pairId, btnEl) {
+    const originalText = btnEl.textContent;
+    btnEl.disabled = true;
+    btnEl.textContent = "⏳";
+    try {
+      const subscription = await getOrCreatePushSubscription();
+      const json = subscription.toJSON();
+      const { error } = await client.from("push_subscriptions").upsert({
+        pair_id: pairId,
+        endpoint: json.endpoint,
+        p256dh: json.keys.p256dh,
+        auth: json.keys.auth,
+      }, { onConflict: "pair_id,endpoint" });
+      if (error) throw new Error(error.message);
+      btnEl.classList.add("subscribed");
+      btnEl.textContent = "🔔";
+      btnEl.title = "Anotado — te vamos a avisar (cuando conectemos el envío)";
+    } catch (err) {
+      alert("No se pudo activar el aviso: " + err.message);
+      btnEl.textContent = originalText;
+    } finally {
+      btnEl.disabled = false;
+    }
+  }
 
   const STATUS_LABEL = {
     draft: "Borrador",
@@ -403,6 +468,13 @@
             `;
           }
 
+          const bellA = m.pair_a_id
+            ? `<button class="bell-btn" title="Avisarme sobre ${escapeHtml(m.team_a_name)}" onclick="subscribeToPair('${m.pair_a_id}', this)">🔔</button>`
+            : "";
+          const bellB = m.pair_b_id
+            ? `<button class="bell-btn" title="Avisarme sobre ${escapeHtml(m.team_b_name)}" onclick="subscribeToPair('${m.pair_b_id}', this)">🔔</button>`
+            : "";
+
           html += `
             <div class="match-card ${statusClass}">
               <div class="match-top">
@@ -410,7 +482,7 @@
                 ${statusTag}
               </div>
               <div class="match-score">
-                ${escapeHtml(m.team_a_name)} <b>${m.score_a}</b> <span class="vs">—</span> <b>${m.score_b}</b> ${escapeHtml(m.team_b_name)}
+                ${escapeHtml(m.team_a_name)} ${bellA} <b>${m.score_a}</b> <span class="vs">—</span> <b>${m.score_b}</b> ${escapeHtml(m.team_b_name)} ${bellB}
               </div>
               <div class="match-links">
                 <a class="link-control" href="control.html?m=${m.id}">${m.is_finished ? "Ver / corregir" : "Cargar resultado"}</a>
