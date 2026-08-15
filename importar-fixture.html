@@ -53,6 +53,29 @@
   .hidden { display: none; }
   .helptext { font-size: 0.75rem; color: #8a94a6; margin-top: 4px; }
 
+  /* Confirmación de jugadores (evita duplicados en el padrón) */
+  .resolve-item {
+    background: #222b3a; border-radius: 10px; padding: 12px; margin-bottom: 10px;
+    border-left: 3px solid #ffcc00;
+  }
+  .resolve-item.ok { border-left-color: #3fd976; }
+  .resolve-item.new { border-left-color: #3fa9f5; }
+  .resolve-title { font-size: 0.85rem; font-weight: 700; margin-bottom: 8px; }
+  .resolve-sub { font-size: 0.76rem; color: #8a94a6; margin-bottom: 8px; }
+  .resolve-ok-line { font-size: 0.85rem; color: #3fd976; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .resolve-new-line { font-size: 0.85rem; color: #3fa9f5; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .resolve-candidates { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+  .btn-candidate {
+    text-align: left; background: #1b2433; color: #fff; border: 1px solid #3a4256;
+    border-radius: 8px; padding: 8px 10px; font-size: 0.82rem; font-weight: 600; cursor: pointer;
+  }
+  .btn-candidate:hover { border-color: #3fa9f5; }
+  .btn-candidate .muted { color: #8a94a6; font-weight: 400; }
+  .resolve-search-row { display: flex; gap: 8px; margin-top: 4px; }
+  .resolve-search-row input { flex: 1; padding: 8px 10px; border-radius: 8px; border: none; background: #1b2433; color: #fff; font-size: 0.82rem; }
+  .btn-link { background: none; border: none; color: #3fa9f5; font-size: 0.78rem; cursor: pointer; text-decoration: underline; padding: 0; }
+  .resolve-counter { font-size: 0.8rem; color: #8a94a6; margin-bottom: 10px; }
+
   /* Barra de login (auth.js) + pantalla de acceso */
   .auth-bar {
     background: #1b2433; border-radius: 12px; padding: 10px 14px;
@@ -151,10 +174,19 @@
       </table>
     </div>
 
+    <div class="card" id="playersResolveCard">
+      <h2 style="margin-top:0;">Confirmar jugadores</h2>
+      <div class="helptext" style="margin-bottom:10px;">
+        Por cada apellido que no matcheó como una coincidencia exacta, confirmá si ya está en tu base (así no se duplica) o si es un jugador nuevo de verdad. No se importa nada hasta que todos queden resueltos.
+      </div>
+      <div class="resolve-counter" id="resolveCounter"></div>
+      <div id="playersResolveList"></div>
+    </div>
+
     <div class="card">
-      <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem;">
+      <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem;" id="warningsAckRow">
         <input type="checkbox" id="chkConfirmo" style="width:auto;" />
-        Revisé las advertencias de arriba y quiero importar igual (los casos ambiguos quedan sin jugador asignado, para completar a mano después).
+        Revisé las advertencias de arriba y quiero importar igual.
       </label>
       <div style="margin-top:12px;">
         <button class="btn-primary" id="btnImportar" onclick="importar()" disabled>Confirmar e importar</button>
@@ -213,7 +245,33 @@
   let sheetRows = [];   // filas crudas del excel (array de arrays)
   let headerRow = [];
   let importPlan = null;
-  let roster = [];       // jugadores existentes, cargados de la DB
+  let roster = [];       // jugadores existentes, cargados de la DB (para el matching automatico)
+  let allPlayersFull = [];  // TODOS los jugadores (para el buscador de confirmacion manual)
+  let resolutions = {};     // key(apellido+categoria) -> { status: 'existing'|'new'|'pending', playerId?, label?, ... }
+
+  const PLAYER_WARNING_TYPES = ["jugador_ambiguo", "posible_error_tipeo", "jugador_nuevo"];
+
+  function resolveKey(apellidoRaw, categoria) {
+    return ImportarLogic.normalizeKey(apellidoRaw) + "|" + ImportarLogic.normalizeKey(categoria);
+  }
+
+  function personLabel(p) {
+    const nombre = ((p.firstName || "") + " " + (p.lastName || "")).trim();
+    return nombre + (p.clubName ? ` (${p.clubName})` : "");
+  }
+
+  async function fetchAllPlayersFull() {
+    const { data, error } = await client
+      .from("players")
+      .select("id, first_name, last_name, display_name, clubs(name)")
+      .order("last_name")
+      .limit(3000);
+    if (error) { console.error(error); return []; }
+    return (data || []).map(p => ({
+      id: p.id, firstName: p.first_name || "", lastName: p.last_name,
+      displayName: p.display_name, clubName: p.clubs ? p.clubs.name : null,
+    }));
+  }
 
   document.getElementById("fArchivo").addEventListener("change", handleFile);
 
@@ -341,6 +399,7 @@
     document.getElementById("btnImportar").disabled = true;
     document.getElementById("statusMsg").innerHTML = '<div class="status-msg ok">Cargando jugadores existentes para comparar…</div>';
     roster = await fetchRoster();
+    allPlayersFull = await fetchAllPlayersFull();
     document.getElementById("statusMsg").innerHTML = "";
 
     let horaPrevia = null;
@@ -358,9 +417,182 @@
     });
 
     importPlan = ImportarLogic.buildImportPlan(rows, roster);
+    buildResolutions();
     renderPreview();
+    renderPlayersResolve();
     document.getElementById("previewBox").classList.remove("hidden");
     document.getElementById("previewBox").scrollIntoView({ behavior: "smooth" });
+  }
+
+  // ------------------------------------------------------------
+  // Junta, por cada apellido detectado en el fixture que no matcheo
+  // como coincidencia exacta, UNA sola entrada a resolver (aunque el
+  // mismo apellido aparezca en varios partidos, se confirma una sola
+  // vez). Los que sí matchearon exacto quedan pre-resueltos como
+  // "existing", pero el admin los puede desarmar si el sistema se
+  // equivocó.
+  // ------------------------------------------------------------
+  function buildResolutions() {
+    resolutions = {};
+    importPlan.matches.forEach(m => {
+      [m.sideA, m.sideB].forEach(side => {
+        if (side.kind !== "pair") return;
+        side.apellidos.forEach(ap => {
+          const key = resolveKey(ap.apellidoRaw, m.categoria);
+          if (resolutions[key]) return; // ya se armo esta entrada
+          const match = ap.match;
+          if (match.status === "matched") {
+            resolutions[key] = {
+              status: "existing", playerId: match.player.id, label: personLabel(match.player),
+              apellidoRaw: ap.apellidoRaw, categoria: m.categoria, auto: true,
+            };
+          } else if (match.status === "ambiguous") {
+            resolutions[key] = {
+              status: "pending", apellidoRaw: ap.apellidoRaw, categoria: m.categoria,
+              candidates: match.candidates,
+            };
+          } else if (match.status === "not_found_with_suggestion") {
+            resolutions[key] = {
+              status: "pending", apellidoRaw: ap.apellidoRaw, categoria: m.categoria,
+              candidates: match.suggestions,
+            };
+          } else {
+            resolutions[key] = { status: "pending", apellidoRaw: ap.apellidoRaw, categoria: m.categoria, candidates: [] };
+          }
+        });
+      });
+    });
+  }
+
+  function renderPlayersResolve() {
+    const keys = Object.keys(resolutions);
+    const pendientes = keys.filter(k => resolutions[k].status === "pending");
+    document.getElementById("resolveCounter").textContent =
+      keys.length === 0
+        ? "No hay ningún nombre para confirmar en este fixture."
+        : pendientes.length === 0
+          ? `Los ${keys.length} apellidos detectados ya están confirmados.`
+          : `Faltan confirmar ${pendientes.length} de ${keys.length} apellidos.`;
+
+    const listEl = document.getElementById("playersResolveList");
+    listEl.innerHTML = keys.map(key => {
+      const r = resolutions[key];
+      if (r.status === "existing") {
+        return `
+          <div class="resolve-item ok">
+            <div class="resolve-ok-line">
+              <span>✓ "${escapeHtmlLocal(r.apellidoRaw)}" es <strong>${escapeHtmlLocal(r.label)}</strong> — ya está en tu base</span>
+              <button class="btn-link" onclick="resolverBuscarOtro('${key}')">¿No es esta persona? Buscar otro</button>
+            </div>
+          </div>`;
+      }
+      if (r.status === "new") {
+        return `
+          <div class="resolve-item new">
+            <div class="resolve-new-line">
+              <span>+ "${escapeHtmlLocal(r.apellidoRaw)}" se va a crear como jugador nuevo</span>
+              <button class="btn-link" onclick="resolverBuscarOtro('${key}')">Deshacer</button>
+            </div>
+          </div>`;
+      }
+      // pending
+      const candidatesHtml = (r.candidates || []).map(c => `
+        <button class="btn-candidate" onclick="resolverElegirExistente('${key}', '${c.id}', '${escapeHtmlLocal(personLabel(c)).replace(/'/g, "&#39;")}')">
+          Es ${escapeHtmlLocal(personLabel(c))} <span class="muted">— ya está en tu base</span>
+        </button>
+      `).join("");
+      return `
+        <div class="resolve-item">
+          <div class="resolve-title">"${escapeHtmlLocal(r.apellidoRaw)}" — categoría ${escapeHtmlLocal(r.categoria)}</div>
+          ${r.candidates && r.candidates.length
+            ? `<div class="resolve-sub">${r.candidates.length > 1 ? "Hay más de uno con ese apellido en tu base. ¿Cuál es?" : "¿Es esta persona?"}</div><div class="resolve-candidates">${candidatesHtml}</div>`
+            : `<div class="resolve-sub">No está en tu base con ese apellido.</div>`}
+          <div class="resolve-search-row">
+            <input type="text" id="search-${key}" list="allPlayersDatalist" placeholder="Buscar otro jugador por apellido..." />
+            <button class="btn-secondary btn-small" onclick="resolverConfirmarBusqueda('${key}')">Usar este</button>
+          </div>
+          <div style="margin-top:8px;">
+            <button class="btn-link" onclick="resolverCrearNuevo('${key}')">Es un jugador nuevo, dar de alta</button>
+          </div>
+        </div>`;
+    }).join("") + `<datalist id="allPlayersDatalist">${allPlayersFull.map(p => `<option value="${escapeHtmlLocal(p.displayName)}">`).join("")}</datalist>`;
+
+    updateImportButtonState();
+  }
+
+  function resolverElegirExistente(key, playerId, label) {
+    resolutions[key] = { ...resolutions[key], status: "existing", playerId, label, auto: false };
+    renderPlayersResolve();
+  }
+
+  function resolverCrearNuevo(key) {
+    resolutions[key] = { ...resolutions[key], status: "new" };
+    renderPlayersResolve();
+  }
+
+  function resolverBuscarOtro(key) {
+    resolutions[key] = { ...resolutions[key], status: "pending", candidates: resolutions[key].candidates || [] };
+    renderPlayersResolve();
+  }
+
+  function resolverConfirmarBusqueda(key) {
+    const input = document.getElementById(`search-${key}`);
+    const typed = (input.value || "").trim();
+    if (!typed) return;
+    const norm = ImportarLogic.normalizeKey(typed);
+    const found = allPlayersFull.filter(p =>
+      ImportarLogic.normalizeKey(p.displayName) === norm || ImportarLogic.normalizeKey(p.lastName) === norm
+    );
+    if (found.length === 0) {
+      showAlert(`No encontré a "${typed}" en tu base. Si es correcto, usá "Es un jugador nuevo".`, { type: "warn" });
+      return;
+    }
+    if (found.length > 1) {
+      showAlert(`Hay más de un jugador que coincide con "${typed}". Escribí el nombre completo para distinguirlos.`, { type: "warn" });
+      return;
+    }
+    resolverElegirExistente(key, found[0].id, personLabel(found[0]));
+  }
+
+  function escapeHtmlLocal(s) {
+    return String(s || "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+  }
+
+  function updateImportButtonState() {
+    if (!importPlan) return;
+    const { warnings } = importPlan;
+    const hardErrors = warnings.filter(w => ["referencia_invalida", "referencia_circular", "nombre_no_separable"].includes(w.type));
+    const softWarnings = warnings.filter(w => !hardErrors.includes(w) && !PLAYER_WARNING_TYPES.includes(w.type));
+    const allResolved = Object.values(resolutions).every(r => r.status !== "pending");
+
+    const ackRow = document.getElementById("warningsAckRow");
+    const btn = document.getElementById("btnImportar");
+    const statusEl = document.getElementById("statusMsg");
+
+    if (hardErrors.length) {
+      ackRow.classList.add("hidden");
+      btn.disabled = true;
+      statusEl.innerHTML = `<div class="status-msg err">Hay ${hardErrors.length} problema(s) que no se pueden importar así (referencias inválidas o nombres no separables). Corregí el Excel y volvé a subirlo.</div>`;
+      return;
+    }
+
+    if (!allResolved) {
+      ackRow.classList.add("hidden");
+      btn.disabled = true;
+      statusEl.innerHTML = `<div class="status-msg err">Todavía faltan jugadores por confirmar arriba, en "Confirmar jugadores".</div>`;
+      return;
+    }
+
+    if (softWarnings.length) {
+      ackRow.classList.remove("hidden");
+      const chk = document.getElementById("chkConfirmo");
+      btn.disabled = !chk.checked;
+      statusEl.innerHTML = "";
+    } else {
+      ackRow.classList.add("hidden");
+      btn.disabled = false;
+      statusEl.innerHTML = "";
+    }
   }
 
   function sideLabel(side) {
@@ -384,11 +616,15 @@
       <div class="summary-tile"><div class="n">${warnings.length}</div><div class="l">advertencias</div></div>
     `;
 
-    const hardErrors = warnings.filter(w => ["referencia_invalida", "referencia_circular", "nombre_no_separable"].includes(w.type));
+    // Las advertencias sobre jugadores (ambiguo / posible typo / nuevo)
+    // ya no se muestran acá — se resuelven una por una en la tarjeta
+    // "Confirmar jugadores" de más abajo. Acá solo quedan las que no
+    // tienen que ver con identidad de jugadores.
+    const visibleWarnings = warnings.filter(w => !PLAYER_WARNING_TYPES.includes(w.type));
     const warningsCard = document.getElementById("warningsCard");
-    if (warnings.length) {
+    if (visibleWarnings.length) {
       warningsCard.classList.remove("hidden");
-      document.getElementById("warningsList").innerHTML = warnings.map(w => {
+      document.getElementById("warningsList").innerHTML = visibleWarnings.map(w => {
         const isHard = ["referencia_invalida", "referencia_circular", "nombre_no_separable"].includes(w.type);
         return `<div class="warning-item ${isHard ? "err" : "warn"}">${isHard ? "🚫" : "⚠️"} ${w.detail}</div>`;
       }).join("");
@@ -406,15 +642,7 @@
       </tr>
     `).join("");
 
-    const btn = document.getElementById("btnImportar");
-    if (hardErrors.length) {
-      btn.disabled = true;
-      document.getElementById("statusMsg").innerHTML =
-        `<div class="status-msg err">Hay ${hardErrors.length} problema(s) que no se pueden importar así (referencias inválidas o nombres no separables). Corregí el Excel y volvé a subirlo.</div>`;
-    } else {
-      document.getElementById("statusMsg").innerHTML = "";
-      document.getElementById("chkConfirmo").onchange = (e) => { btn.disabled = !e.target.checked; };
-    }
+    document.getElementById("chkConfirmo").onchange = updateImportButtonState;
   }
 
   async function importar() {
@@ -460,26 +688,32 @@
       // para no crear el mismo apellido dos veces dentro del mismo archivo
       const newPlayerCache = {};
 
-      async function resolvePlayerId(apellidoInfo) {
-        if (apellidoInfo.match.status === "matched") return apellidoInfo.match.player.id;
-        if (apellidoInfo.match.status === "ambiguous") return null;              // no se elige solo
-        if (apellidoInfo.match.status === "not_found_with_suggestion") return null; // posible typo, no se asume
-        // "not_found": jugador genuinamente nuevo -> se da de alta
-        const key = ImportarLogic.normalizeKey(apellidoInfo.apellidoRaw);
+      // A esta altura ya no hay ambiguedad: cada apellido del fixture
+      // quedo resuelto a mano en la tarjeta "Confirmar jugadores"
+      // (resolutions[key].status es "existing" o "new" — el boton de
+      // importar estaba deshabilitado mientras hubiera algo "pending").
+      async function resolvePlayerId(apellidoInfo, categoriaRaw) {
+        const key = resolveKey(apellidoInfo.apellidoRaw, categoriaRaw);
+        const r = resolutions[key];
+        if (r && r.status === "existing") return r.playerId;
+
+        // "new" (o, por las dudas, cualquier caso raro que se haya
+        // colado): se da de alta como jugador nuevo, una sola vez por
+        // apellido aunque aparezca en varios partidos de este archivo.
         if (newPlayerCache[key]) return newPlayerCache[key];
+        const nombre = ImportarLogic.titleCase(apellidoInfo.apellidoRaw);
         const { data: newPlayer } = await client.from("players").insert({
-          last_name: ImportarLogic.titleCase(apellidoInfo.apellidoRaw),
-          display_name: ImportarLogic.titleCase(apellidoInfo.apellidoRaw),
+          last_name: nombre, display_name: nombre,
         }).select().single();
         newPlayerCache[key] = newPlayer.id;
         return newPlayer.id;
       }
 
-      async function resolveSideToPairId(side, categoryId) {
+      async function resolveSideToPairId(side, categoryId, categoriaRaw) {
         if (side.kind !== "pair" && side.kind !== "unresolved") return { pairId: null, isReference: side.kind === "reference" ? side : null };
         const apellidos = side.kind === "unresolved" ? [{ apellidoRaw: side.raw, match: { status: "not_found" } }] : side.apellidos;
         const playerIds = [];
-        for (const ap of apellidos) playerIds.push(await resolvePlayerId(ap));
+        for (const ap of apellidos) playerIds.push(await resolvePlayerId(ap, categoriaRaw));
         const displayName = apellidos.map(a => ImportarLogic.titleCase(a.apellidoRaw)).join(" / ");
         const { data: pair } = await client.from("tournament_pairs").insert({
           tournament_id: tournament.id, category_id: categoryId,
@@ -493,8 +727,8 @@
       const insertedByNumber = {};
       for (const m of importPlan.matches) {
         const categoryId = catIds[ImportarLogic.normalizeKey(m.categoria)];
-        const resolvedA = await resolveSideToPairId(m.sideA, categoryId);
-        const resolvedB = await resolveSideToPairId(m.sideB, categoryId);
+        const resolvedA = await resolveSideToPairId(m.sideA, categoryId, m.categoria);
+        const resolvedB = await resolveSideToPairId(m.sideB, categoryId, m.categoria);
 
         const matchId = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random())).slice(0, 8);
         const teamAName = resolvedA.isReference ? resolvedA.isReference.raw : (m.sideA.kind === "pair" || m.sideA.kind === "unresolved" ? m.sideA.raw : "");

@@ -110,8 +110,10 @@
   .bell-btn:hover { opacity: 1; }
   .bell-btn.subscribed { opacity: 1; }
   .sub-check {
+    background: none; border: none; cursor: pointer;
     font-size: 0.85rem; color: #5adc8c; vertical-align: middle; padding: 0 2px;
   }
+  .sub-check:hover { opacity: 0.75; }
 
   /* Barra de login (auth.js) */
   .auth-bar {
@@ -267,14 +269,20 @@
   function bellButtonHtml(pairId, label) {
     if (!pairId) return "";
     if (isPairSubscribed(pairId)) {
-      return `<span class="sub-check" title="Ya estás anotado para avisos de ${escapeHtml(label)}">✅</span>`;
+      // El tilde tambien es clickeable: la suscripcion push puede
+      // vencerse sola del lado del servidor (Android/PWA la revoca
+      // con el tiempo) sin que el navegador se entere — si eso pasa,
+      // tocar el tilde la vuelve a registrar, sin depender de que el
+      // usuario borre datos del navegador para que vuelva a salir la
+      // campanita.
+      return `<button class="sub-check" title="Ya estás anotado para avisos de ${escapeHtml(label)} — tocá para renovar la suscripción" onclick="subscribeToPair('${pairId}', this, true)">✅</button>`;
     }
-    return `<button class="bell-btn" title="Avisarme sobre ${escapeHtml(label)}" onclick="subscribeToPair('${pairId}', this)">🔔</button>`;
+    return `<button class="bell-btn" title="Avisarme sobre ${escapeHtml(label)}" onclick="subscribeToPair('${pairId}', this, false)">🔔</button>`;
   }
 
-  async function subscribeToPair(pairId, btnEl) {
-    const originalText = btnEl.textContent;
-    const label = (btnEl.title || "").replace(/^Avisarme sobre /, "");
+  async function subscribeToPair(pairId, btnEl, isRenewal) {
+    const originalHtml = btnEl.outerHTML;
+    const label = (btnEl.title || "").replace(/^Avisarme sobre /, "").replace(/ — tocá para renovar la suscripción$/, "");
     btnEl.disabled = true;
     btnEl.textContent = "⏳";
     try {
@@ -288,14 +296,16 @@
       });
       // Si ya estaba suscripto (mismo navegador, misma pareja), Postgres
       // rechaza el insert duplicado con el codigo 23505 — eso no es un
-      // error real para el usuario, ya estaba anotado igual.
+      // error real para el usuario, ya estaba anotado igual (o, en el
+      // caso de una renovacion, es lo esperado si la suscripcion vieja
+      // en realidad seguia viva).
       if (error && error.code !== "23505") throw new Error(error.message);
       markPairSubscribed(pairId);
-      btnEl.outerHTML = `<span class="sub-check" title="Ya estás anotado para avisos de ${escapeHtml(label)}">✅</span>`;
+      btnEl.outerHTML = `<button class="sub-check" title="Ya estás anotado para avisos de ${escapeHtml(label)} — tocá para renovar la suscripción" onclick="subscribeToPair('${pairId}', this, true)">✅</button>`;
+      if (isRenewal) showAlert("Suscripción renovada.", { type: "success" });
     } catch (err) {
       showAlert("No se pudo activar el aviso: " + err.message, { type: "error" });
-      btnEl.textContent = originalText;
-      btnEl.disabled = false;
+      btnEl.outerHTML = originalHtml;
     }
   }
 
