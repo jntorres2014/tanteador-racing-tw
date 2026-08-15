@@ -53,6 +53,11 @@
     margin-top: 12px; width: 100%; border: none; border-radius: 10px; padding: 11px;
     background: #ffcc00; color: #0b1320; font-weight: 700; font-size: 0.88rem; cursor: pointer;
   }
+  .delete-btn {
+    margin-top: 8px; width: 100%; border: 2px solid #ff4b4b; border-radius: 10px; padding: 10px;
+    background: transparent; color: #ff4b4b; font-weight: 700; font-size: 0.85rem; cursor: pointer;
+  }
+  .delete-btn:hover { background: rgba(255,75,75,0.1); }
 
   h3.group-title {
     font-size: 0.82rem; text-transform: uppercase; letter-spacing: 1.5px;
@@ -401,6 +406,8 @@
     const sub = [tournament.edition, tournament.venue, tournament.seasons ? tournament.seasons.year : null]
       .filter(Boolean).join(" · ");
 
+    const isAdminHeader = currentProfile && currentProfile.role === "admin";
+
     let html = `
       <div class="detail-header">
         <h2>${escapeHtml(tournament.name)}</h2>
@@ -410,6 +417,9 @@
         </div>
         ${tournament.status === "draft"
           ? `<button class="publish-btn" onclick="publicarTorneo('${tournament.id}')">Publicar torneo</button>`
+          : ""}
+        ${isAdminHeader
+          ? `<button class="delete-btn" data-name="${escapeHtml(tournament.name)}" onclick="borrarTorneo('${tournament.id}', this)">🗑️ Borrar torneo</button>`
           : ""}
       </div>
     `;
@@ -696,6 +706,36 @@
       return;
     }
     loadTournamentDetail(id);
+  }
+
+  // ------------------------------------------------------------
+  // Borra un torneo entero (y todo lo que dependa de el: partidos,
+  // cruces, parejas, canchas, dias — gracias a las migraciones 013 y
+  // 014, que dejaron esas referencias en cascada). Pide escribir el
+  // nombre exacto del torneo para confirmar, asi no se puede tocar
+  // por accidente.
+  // ------------------------------------------------------------
+  async function borrarTorneo(id, btnEl) {
+    const name = btnEl.dataset.name || "";
+    const typed = prompt(
+      `Esto borra "${name}" Y TODOS sus partidos, parejas y canchas. No se puede deshacer.\n\nPara confirmar, escribí el nombre exacto del torneo:`
+    );
+    if (typed === null) return; // cancelado
+    if (typed.trim() !== name) {
+      alert("El nombre no coincide, no se borró nada.");
+      return;
+    }
+    btnEl.disabled = true;
+    btnEl.textContent = "Borrando...";
+    const { error } = await client.from("tournaments").delete().eq("id", id);
+    if (error) {
+      alert("No se pudo borrar: " + error.message);
+      btnEl.disabled = false;
+      btnEl.textContent = "🗑️ Borrar torneo";
+      return;
+    }
+    alert("Torneo borrado.");
+    location.href = "torneos.html";
   }
 
   function updateAdminActions() {
