@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#0b1320" />
+<title>Racing Club TW — Catálogo</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; min-height: 100vh;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #0b1320; color: #fff;
+  }
+  body { display: flex; justify-content: center; padding: 20px; }
+  .wrap { width: 100%; max-width: 640px; }
+
+  .top-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+  .back-link { color: #8a94a6; text-decoration: none; font-size: 0.85rem; }
+  h1 { font-size: 1.05rem; text-transform: uppercase; letter-spacing: 1.5px; margin: 0; text-align: center; flex: 1; }
+
+  .empty { text-align: center; color: #8a94a6; padding: 30px 10px; font-size: 0.9rem; }
+
+  .tab-row { display: flex; gap: 8px; margin-bottom: 16px; }
+  .tab-btn {
+    flex: 1; padding: 10px; border-radius: 10px; border: 2px solid #3a4256;
+    background: #1b2433; color: #8a94a6; font-weight: 700; font-size: 0.85rem; cursor: pointer;
+  }
+  .tab-btn.active { border-color: #3fa9f5; color: #fff; }
+  .hidden-tab { display: none; }
+  .hidden { display: none; }
+
+  .form-card {
+    background: #1b2433; border-radius: 14px; padding: 16px; margin-bottom: 18px;
+    border: 2px solid #3a4256;
+  }
+  .form-card h3 {
+    margin: 0 0 12px; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; color: #8a94a6;
+  }
+  .form-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+  .form-row input, .form-row select {
+    flex: 1; min-width: 120px; padding: 10px 12px; border-radius: 10px; border: 2px solid #3a4256;
+    background: #222b3a; color: #fff; font-size: 0.85rem;
+  }
+  .form-row input::placeholder { color: #8a94a6; }
+  .form-row label.checkbox-label {
+    display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: #bcc4d1; padding: 0 4px;
+  }
+  .btn-primary {
+    width: 100%; border: none; border-radius: 10px; padding: 11px;
+    background: #3fa9f5; color: #fff; font-weight: 700; font-size: 0.88rem; cursor: pointer;
+  }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .form-msg { font-size: 0.78rem; margin-top: 8px; }
+  .form-msg.ok { color: #3fd976; }
+  .form-msg.err { color: #ff4b4b; }
+
+  .search-box {
+    width: 100%; padding: 10px 12px; border-radius: 10px; border: 2px solid #3a4256;
+    background: #1b2433; color: #fff; font-size: 0.85rem; margin-bottom: 12px;
+  }
+  .search-box::placeholder { color: #8a94a6; }
+
+  .item-card {
+    background: #1b2433; border-radius: 14px; padding: 12px 16px;
+    margin-bottom: 9px; border: 2px solid #3a4256;
+  }
+  .item-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .item-name { font-weight: 700; font-size: 0.92rem; }
+  .item-sub { color: #8a94a6; font-size: 0.78rem; margin-top: 2px; }
+  .item-actions { display: flex; gap: 8px; }
+  .item-actions button {
+    border: none; border-radius: 8px; padding: 7px 11px; font-weight: 600;
+    font-size: 0.78rem; cursor: pointer;
+  }
+  .btn-edit { background: #3a4256; color: #fff; }
+  .btn-save { background: #3fd976; color: #0b1320; }
+  .btn-cancel { background: #3a4256; color: #fff; }
+  .badge-inactive {
+    background: rgba(138,148,166,0.15); color: #8a94a6; font-size: 0.68rem; font-weight: 700;
+    padding: 3px 8px; border-radius: 10px; margin-left: 6px; white-space: nowrap;
+  }
+
+  .edit-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .edit-row input, .edit-row select {
+    flex: 1; min-width: 110px; padding: 8px 10px; border-radius: 8px; border: 2px solid #3a4256;
+    background: #222b3a; color: #fff; font-size: 0.82rem;
+  }
+
+  /* Barra de login (auth.js) */
+  .auth-bar {
+    background: #1b2433; border-radius: 12px; padding: 10px 14px;
+    margin-bottom: 16px; border: 2px solid #3a4256;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .auth-bar-out { padding: 14px; }
+  .auth-btn-google {
+    width: 100%; background: #fff; color: #1a1a1a; border: none;
+    border-radius: 10px; padding: 12px; font-weight: 700; font-size: 0.92rem;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .auth-google-g {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 18px; border-radius: 50%; background: #4285F4;
+    color: #fff; font-size: 0.72rem; font-weight: 900;
+  }
+  .auth-bar-in { justify-content: space-between; }
+  .auth-user { display: flex; align-items: center; gap: 10px; }
+  .auth-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
+  .auth-avatar-fallback {
+    display: flex; align-items: center; justify-content: center;
+    background: #3fa9f5; color: #fff; font-weight: 700; font-size: 0.95rem;
+  }
+  .auth-name { font-weight: 600; font-size: 0.88rem; text-align: left; }
+  .auth-role { font-size: 0.72rem; color: #8a94a6; margin-top: 1px; }
+  .auth-role-admin { color: #ffcc00; font-weight: 600; }
+  .auth-pending { font-size: 0.72rem; color: #ff9d4b; margin-top: 1px; }
+  .auth-btn-logout {
+    background: #3a4256; color: #fff; border: none; border-radius: 8px;
+    padding: 8px 14px; font-size: 0.8rem; font-weight: 600; cursor: pointer;
+  }
+
+  .access-blocked {
+    background: #1b2433; border-radius: 14px; padding: 20px; text-align: center;
+    border: 2px solid #ff9d4b; color: #bcc4d1; font-size: 0.88rem;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top-row">
+    <a href="admin.html" class="back-link">← Usuarios</a>
+    <h1>Catálogo</h1>
+    <span style="width:60px"></span>
+  </div>
+
+  <div id="authBar"><div class="auth-bar">Cargando sesión...</div></div>
+  <div id="accessBlocked" class="access-blocked hidden"></div>
+
+  <div id="catalogContent" class="hidden">
+    <div class="tab-row">
+      <button class="tab-btn active" id="tabBtnClubs" onclick="switchTab('clubs')">Clubes</button>
+      <button class="tab-btn" id="tabBtnPlayers" onclick="switchTab('players')">Jugadores</button>
+    </div>
+
+    <div id="clubsTab">
+      <div class="form-card">
+        <h3>Nuevo club</h3>
+        <div class="form-row">
+          <input type="text" id="newClubName" placeholder="Nombre del club" />
+          <input type="text" id="newClubCity" placeholder="Ciudad (opcional)" />
+        </div>
+        <button class="btn-primary" onclick="crearClub()">+ Agregar club</button>
+        <div class="form-msg" id="clubFormMsg"></div>
+      </div>
+      <input type="text" id="clubSearchBox" class="search-box" placeholder="Buscar club..." oninput="renderClubs()" />
+      <div id="clubsSection"><div class="empty">Cargando...</div></div>
+    </div>
+
+    <div id="playersTab" class="hidden-tab">
+      <div class="form-card">
+        <h3>Nuevo jugador</h3>
+        <div class="form-row">
+          <input type="text" id="newPlayerFirstName" placeholder="Nombre" />
+          <input type="text" id="newPlayerLastName" placeholder="Apellido *" />
+        </div>
+        <div class="form-row">
+          <select id="newPlayerClub">
+            <option value="">Sin club</option>
+          </select>
+          <input type="text" id="newPlayerCity" placeholder="Ciudad (opcional)" />
+          <input type="number" id="newPlayerBirthYear" placeholder="Año nac. (opcional)" min="1900" max="2100" />
+        </div>
+        <button class="btn-primary" onclick="crearJugador()">+ Agregar jugador</button>
+        <div class="form-msg" id="playerFormMsg"></div>
+      </div>
+      <input type="text" id="playerSearchBox" class="search-box" placeholder="Buscar jugador..." oninput="renderPlayers()" />
+      <div id="playersSection"><div class="empty">Cargando...</div></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script src="auth.js"></script>
+<script src="importar-logic.js"></script>
+<script>
+  var client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  let allClubs = [];
+  let allPlayers = [];
+
+  function escapeHtml(s) {
+    return String(s || "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+  }
+
+  function normalizeText(s) {
+    return String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  }
+
+  function switchTab(tab) {
+    document.getElementById("tabBtnClubs").classList.toggle("active", tab === "clubs");
+    document.getElementById("tabBtnPlayers").classList.toggle("active", tab === "players");
+    document.getElementById("clubsTab").classList.toggle("hidden-tab", tab !== "clubs");
+    document.getElementById("playersTab").classList.toggle("hidden-tab", tab !== "players");
+  }
+
+  // ------------------------------------------------------------
+  // Solo un admin puede ver esta pantalla.
+  // ------------------------------------------------------------
+  async function checkAdminAccess() {
+    const { session, profile } = await authRenderInto("authBar");
+    const blockedEl = document.getElementById("accessBlocked");
+    const contentEl = document.getElementById("catalogContent");
+
+    let allowed = false;
+    let msg = "";
+    if (!session) {
+      msg = "Iniciá sesión con Google (como admin) para ver esta pantalla.";
+    } else if (!profile || !profile.active) {
+      msg = "Tu cuenta todavía no fue activada por un admin.";
+    } else if (profile.role !== "admin") {
+      msg = "Solo un administrador puede ver esta pantalla.";
+    } else {
+      allowed = true;
+    }
+
+    if (allowed) {
+      blockedEl.classList.add("hidden");
+      contentEl.classList.remove("hidden");
+      loadClubs();
+      loadPlayers();
+    } else {
+      blockedEl.textContent = msg;
+      blockedEl.classList.remove("hidden");
+      contentEl.classList.add("hidden");
+    }
+    return allowed;
+  }
+
+  // ------------------------------------------------------------
+  // CLUBES
+  // ------------------------------------------------------------
+  async function loadClubs() {
+    const { data, error } = await client.from("clubs").select("*").order("name", { ascending: true });
+    if (error) {
+      document.getElementById("clubsSection").innerHTML = `<div class="empty">No se pudo cargar: ${escapeHtml(error.message)}</div>`;
+      return;
+    }
+    allClubs = data || [];
+    renderClubs();
+    fillClubSelect();
+  }
+
+  function fillClubSelect() {
+    const sel = document.getElementById("newPlayerClub");
+    const current = sel.value;
+    sel.innerHTML = '<option value="">Sin club</option>' +
+      allClubs.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("");
+    sel.value = current;
+  }
+
+  function renderClubs() {
+    const term = normalizeText(document.getElementById("clubSearchBox").value.trim());
+    let clubs = allClubs;
+    if (term) clubs = clubs.filter((c) => normalizeText(c.name + " " + (c.city || "")).includes(term));
+
+    const el = document.getElementById("clubsSection");
+    if (clubs.length === 0) {
+      el.innerHTML = '<div class="empty">No hay clubes que coincidan.</div>';
+      return;
+    }
+    el.innerHTML = clubs.map((c) => `
+      <div class="item-card" id="club-${c.id}">
+        <div class="item-top">
+          <div>
+            <div class="item-name">${escapeHtml(c.name)}</div>
+            ${c.city ? `<div class="item-sub">${escapeHtml(c.city)}</div>` : ""}
+          </div>
+          <div class="item-actions">
+            <button class="btn-edit" onclick="editClub('${c.id}')">Editar</button>
+          </div>
+        </div>
+      </div>
+    `).join("");
+  }
+
+  function editClub(id) {
+    const c = allClubs.find((x) => x.id === id);
+    if (!c) return;
+    const el = document.getElementById(`club-${id}`);
+    el.innerHTML = `
+      <div class="edit-row">
+        <input type="text" id="editClubName-${id}" value="${escapeHtml(c.name)}" placeholder="Nombre" />
+        <input type="text" id="editClubCity-${id}" value="${escapeHtml(c.city || "")}" placeholder="Ciudad" />
+      </div>
+      <div class="item-actions" style="margin-top:8px;">
+        <button class="btn-save" onclick="guardarClub('${id}')">Guardar</button>
+        <button class="btn-cancel" onclick="renderClubs()">Cancelar</button>
+      </div>
+    `;
+  }
+
+  async function guardarClub(id) {
+    const name = document.getElementById(`editClubName-${id}`).value.trim();
+    const city = document.getElementById(`editClubCity-${id}`).value.trim();
+    if (!name) { alert("El nombre no puede quedar vacío."); return; }
+    const { error } = await client.from("clubs").update({ name, city: city || null }).eq("id", id);
+    if (error) { alert("No se pudo guardar: " + error.message); return; }
+    await loadClubs();
+  }
+
+  async function crearClub() {
+    const nameEl = document.getElementById("newClubName");
+    const cityEl = document.getElementById("newClubCity");
+    const msgEl = document.getElementById("clubFormMsg");
+    const name = nameEl.value.trim();
+    const city = cityEl.value.trim();
+    if (!name) {
+      msgEl.textContent = "Falta el nombre del club.";
+      msgEl.className = "form-msg err";
+      return;
+    }
+    const { error } = await client.from("clubs").insert({ name, city: city || null });
+    if (error) {
+      msgEl.textContent = "No se pudo crear: " + error.message;
+      msgEl.className = "form-msg err";
+      return;
+    }
+    nameEl.value = "";
+    cityEl.value = "";
+    msgEl.textContent = "Club agregado ✓";
+    msgEl.className = "form-msg ok";
+    await loadClubs();
+  }
+
+  // ------------------------------------------------------------
+  // JUGADORES
+  // ------------------------------------------------------------
+  async function loadPlayers() {
+    const { data, error } = await client
+      .from("players")
+      .select("*, clubs(name)")
+      .order("last_name", { ascending: true });
+    if (error) {
+      document.getElementById("playersSection").innerHTML = `<div class="empty">No se pudo cargar: ${escapeHtml(error.message)}</div>`;
+      return;
+    }
+    allPlayers = data || [];
+    renderPlayers();
+  }
+
+  function renderPlayers() {
+    const term = normalizeText(document.getElementById("playerSearchBox").value.trim());
+    let players = allPlayers;
+    if (term) {
+      players = players.filter((p) => normalizeText(
+        [p.display_name, p.city, p.clubs ? p.clubs.name : ""].join(" ")
+      ).includes(term));
+    }
+
+    const el = document.getElementById("playersSection");
+    if (players.length === 0) {
+      el.innerHTML = '<div class="empty">No hay jugadores que coincidan.</div>';
+      return;
+    }
+    el.innerHTML = players.map((p) => {
+      const sub = [p.clubs ? p.clubs.name : null, p.city, p.birth_year].filter(Boolean).join(" · ");
+      return `
+        <div class="item-card" id="player-${p.id}">
+          <div class="item-top">
+            <div>
+              <div class="item-name">${escapeHtml(p.display_name)}${!p.active ? '<span class="badge-inactive">Inactivo</span>' : ""}</div>
+              ${sub ? `<div class="item-sub">${escapeHtml(sub)}</div>` : ""}
+            </div>
+            <div class="item-actions">
+              <button class="btn-edit" onclick="editPlayer('${p.id}')">Editar</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  function editPlayer(id) {
+    const p = allPlayers.find((x) => x.id === id);
+    if (!p) return;
+    const el = document.getElementById(`player-${id}`);
+    const clubOptions = ['<option value="">Sin club</option>']
+      .concat(allClubs.map((c) => `<option value="${c.id}" ${c.id === p.club_id ? "selected" : ""}>${escapeHtml(c.name)}</option>`))
+      .join("");
+    el.innerHTML = `
+      <div class="edit-row">
+        <input type="text" id="editPlayerFirst-${id}" value="${escapeHtml(p.first_name || "")}" placeholder="Nombre" />
+        <input type="text" id="editPlayerLast-${id}" value="${escapeHtml(p.last_name)}" placeholder="Apellido" />
+      </div>
+      <div class="edit-row">
+        <select id="editPlayerClub-${id}">${clubOptions}</select>
+        <input type="text" id="editPlayerCity-${id}" value="${escapeHtml(p.city || "")}" placeholder="Ciudad" />
+        <input type="number" id="editPlayerBirthYear-${id}" value="${p.birth_year || ""}" placeholder="Año nac." />
+      </div>
+      <div class="edit-row">
+        <label class="checkbox-label"><input type="checkbox" id="editPlayerActive-${id}" ${p.active ? "checked" : ""}/> Activo</label>
+      </div>
+      <div class="item-actions" style="margin-top:8px;">
+        <button class="btn-save" onclick="guardarJugador('${id}')">Guardar</button>
+        <button class="btn-cancel" onclick="renderPlayers()">Cancelar</button>
+      </div>
+    `;
+  }
+
+  async function guardarJugador(id) {
+    const firstName = document.getElementById(`editPlayerFirst-${id}`).value.trim();
+    const lastName = document.getElementById(`editPlayerLast-${id}`).value.trim();
+    const clubId = document.getElementById(`editPlayerClub-${id}`).value || null;
+    const city = document.getElementById(`editPlayerCity-${id}`).value.trim();
+    const birthYearRaw = document.getElementById(`editPlayerBirthYear-${id}`).value;
+    const active = document.getElementById(`editPlayerActive-${id}`).checked;
+
+    if (!lastName) { alert("El apellido no puede quedar vacío."); return; }
+
+    const displayName = ImportarLogic.titleCase(firstName ? `${firstName} ${lastName}` : lastName);
+    const { error } = await client.from("players").update({
+      first_name: firstName || null,
+      last_name: lastName,
+      display_name: displayName,
+      club_id: clubId,
+      city: city || null,
+      birth_year: birthYearRaw ? parseInt(birthYearRaw, 10) : null,
+      active,
+    }).eq("id", id);
+
+    if (error) { alert("No se pudo guardar: " + error.message); return; }
+    await loadPlayers();
+  }
+
+  async function crearJugador() {
+    const firstEl = document.getElementById("newPlayerFirstName");
+    const lastEl = document.getElementById("newPlayerLastName");
+    const clubEl = document.getElementById("newPlayerClub");
+    const cityEl = document.getElementById("newPlayerCity");
+    const birthEl = document.getElementById("newPlayerBirthYear");
+    const msgEl = document.getElementById("playerFormMsg");
+
+    const firstName = firstEl.value.trim();
+    const lastName = lastEl.value.trim();
+    if (!lastName) {
+      msgEl.textContent = "Falta el apellido del jugador.";
+      msgEl.className = "form-msg err";
+      return;
+    }
+
+    const displayName = ImportarLogic.titleCase(firstName ? `${firstName} ${lastName}` : lastName);
+    const { error } = await client.from("players").insert({
+      first_name: firstName || null,
+      last_name: lastName,
+      display_name: displayName,
+      club_id: clubEl.value || null,
+      city: cityEl.value.trim() || null,
+      birth_year: birthEl.value ? parseInt(birthEl.value, 10) : null,
+      active: true,
+    });
+
+    if (error) {
+      msgEl.textContent = "No se pudo crear: " + error.message;
+      msgEl.className = "form-msg err";
+      return;
+    }
+    firstEl.value = ""; lastEl.value = ""; cityEl.value = ""; birthEl.value = ""; clubEl.value = "";
+    msgEl.textContent = "Jugador agregado ✓";
+    msgEl.className = "form-msg ok";
+    await loadPlayers();
+  }
+
+  checkAdminAccess();
+  authWatch("authBar", checkAdminAccess);
+</script>
+</body>
+</html>
