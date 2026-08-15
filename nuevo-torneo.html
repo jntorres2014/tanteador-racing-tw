@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Nuevo torneo (carga manual) — Tanteador Racing Club TW</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #0b1320; color: #fff; min-height: 100vh;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 16px; }
+  .back-link { display: block; font-size: 0.8rem; color: #8a94a6; text-decoration: none; margin-bottom: 10px; }
+  h1 { font-size: 1.2rem; text-transform: uppercase; letter-spacing: 1.5px; margin: 0 0 4px; }
+  .subtitle { font-size: 0.8rem; color: #8a94a6; margin: 0 0 18px; }
+  h2 { font-size: 0.95rem; color: #ccc; margin: 0 0 10px; }
+  .card { background: #1b2433; border-radius: 14px; padding: 16px; margin-bottom: 14px; border: 1px solid #2a3448; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; align-items: flex-end; }
+  .field { flex: 1; min-width: 150px; }
+  .field label { display: block; font-size: 0.75rem; color: #8a94a6; margin-bottom: 4px; }
+  .field input, .field select {
+    width: 100%; padding: 9px 10px; border-radius: 8px; border: none;
+    background: #222b3a; color: #fff; font-size: 0.9rem;
+  }
+  button {
+    border: none; border-radius: 10px; padding: 11px 16px; font-weight: 700;
+    font-size: 0.88rem; cursor: pointer;
+  }
+  .btn-primary { background: #ffcc00; color: #0b1320; }
+  .btn-secondary { background: #3a4256; color: #fff; }
+  .btn-danger { background: #ff4b4b; color: #fff; }
+  .btn-small { padding: 6px 10px; font-size: 0.76rem; border-radius: 7px; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .helptext { font-size: 0.75rem; color: #8a94a6; margin: 4px 0 0; }
+  .hidden { display: none; }
+
+  .chip-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+  .chip {
+    background: rgba(63,169,245,0.15); color: #3fa9f5; font-size: 0.78rem; font-weight: 600;
+    padding: 5px 12px; border-radius: 20px;
+  }
+  .chip.empty { background: #222b3a; color: #8a94a6; font-weight: 400; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid #2a3448; vertical-align: middle; }
+  th { color: #8a94a6; font-weight: 600; }
+  .empty-row td { color: #8a94a6; text-align: center; padding: 14px; }
+
+  .status-msg { font-size: 0.85rem; padding: 10px; border-radius: 8px; margin-top: 10px; }
+  .status-msg.ok { background: rgba(63,217,118,0.15); color: #3fd976; }
+  .status-msg.err { background: rgba(255,75,75,0.15); color: #ff4b4b; }
+
+  .tournament-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    background: #1b2433; border-radius: 14px; padding: 14px 16px; margin-bottom: 14px;
+    border: 2px solid #3fa9f5;
+  }
+  .tournament-head .name { font-weight: 700; font-size: 1rem; }
+  .tournament-head .status { font-size: 0.72rem; color: #ffcc00; text-transform: uppercase; letter-spacing: 1px; }
+  .tournament-head a { color: #3fa9f5; text-decoration: none; font-size: 0.82rem; font-weight: 600; white-space: nowrap; }
+
+  .side-row { display: flex; gap: 8px; align-items: flex-end; }
+  .side-row .field { flex: 1; }
+
+  /* Barra de login (auth.js) + pantalla de acceso */
+  .auth-bar {
+    background: #1b2433; border-radius: 12px; padding: 10px 14px;
+    margin-bottom: 16px; border: 2px solid #2a3448;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .auth-bar-out { padding: 14px; }
+  .auth-btn-google {
+    width: 100%; background: #fff; color: #1a1a1a; border: none;
+    border-radius: 10px; padding: 12px; font-weight: 700; font-size: 0.92rem;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .auth-google-g {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 18px; border-radius: 50%; background: #4285F4;
+    color: #fff; font-size: 0.72rem; font-weight: 900;
+  }
+  .auth-bar-in { justify-content: space-between; }
+  .auth-user { display: flex; align-items: center; gap: 10px; }
+  .auth-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
+  .auth-avatar-fallback {
+    display: flex; align-items: center; justify-content: center;
+    background: #3fa9f5; color: #fff; font-weight: 700; font-size: 0.95rem;
+  }
+  .auth-name { font-weight: 600; font-size: 0.88rem; text-align: left; }
+  .auth-role { font-size: 0.72rem; color: #8a94a6; margin-top: 1px; }
+  .auth-role-admin { color: #ffcc00; font-weight: 600; }
+  .auth-pending { font-size: 0.72rem; color: #ff9d4b; margin-top: 1px; }
+  .auth-btn-logout {
+    background: #3a4256; color: #fff; border: none; border-radius: 8px;
+    padding: 8px 14px; font-size: 0.8rem; font-weight: 600; cursor: pointer;
+  }
+  .access-blocked {
+    background: #1b2433; border-radius: 14px; padding: 20px; text-align: center;
+    border: 2px solid #ff9d4b; color: #bcc4d1; font-size: 0.88rem;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back-link" href="torneos.html">← Torneos</a>
+  <h1>Nuevo torneo (carga manual)</h1>
+  <div class="subtitle">Para armar un torneo escribiendo los datos directo, sin depender de un Excel. Se guarda como borrador — lo publicás desde "Torneos" cuando esté listo.</div>
+
+  <div id="authBar"><div class="auth-bar">Cargando sesión...</div></div>
+  <div id="accessBlocked" class="access-blocked hidden"></div>
+
+  <div id="builderContent" class="hidden">
+
+    <!-- Paso 1: crear el torneo (solo si todavía no existe) -->
+    <div id="stepCrear" class="card hidden">
+      <h2 style="margin-top:0;">Datos del torneo</h2>
+      <div class="row">
+        <div class="field"><label>Nombre del torneo</label><input id="fNombre" placeholder="Torneo Patagónico de Veteranos" /></div>
+        <div class="field"><label>Sede</label><input id="fSede" placeholder="Racing Trelew" /></div>
+        <div class="field"><label>Año (temporada)</label><input id="fAnio" type="number" value="2026" /></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Fecha (opcional)</label><input id="fFecha" type="date" /></div>
+        <div class="field"><label>Hora de inicio</label><input id="fHoraInicio" type="time" value="14:00" /></div>
+        <div class="field"><label>Primera cancha</label><input id="fCancha" placeholder="Cancha principal" /></div>
+      </div>
+      <button class="btn-primary" onclick="crearTorneo(this)">Crear torneo</button>
+      <div id="crearStatus"></div>
+    </div>
+
+    <!-- Paso 2+: gestionar el torneo ya creado -->
+    <div id="stepManage" class="hidden">
+      <div class="tournament-head">
+        <div>
+          <div class="name" id="tHeadName">—</div>
+          <div class="status" id="tHeadStatus">BORRADOR</div>
+        </div>
+        <a id="tHeadLink" href="#" target="_blank">Ver en Torneos →</a>
+      </div>
+
+      <div class="card">
+        <h2>Canchas</h2>
+        <div class="chip-row" id="courtsChips"></div>
+        <div class="row">
+          <div class="field"><label>Agregar cancha</label><input id="fNuevaCancha" placeholder="Cancha 2" /></div>
+          <button class="btn-secondary" onclick="agregarCancha()">+ Agregar</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Categorías</h2>
+        <div class="chip-row" id="catsChips"></div>
+        <div class="row">
+          <div class="field"><label>Agregar categoría</label><input id="fNuevaCategoria" placeholder="Ej: A1, Damas, Veteranos +50" /></div>
+          <button class="btn-secondary" onclick="agregarCategoria()">+ Agregar</button>
+        </div>
+        <div class="helptext">Hace falta al menos una categoría antes de poder cargar parejas.</div>
+      </div>
+
+      <div class="card">
+        <h2>Parejas</h2>
+        <div class="row">
+          <div class="field"><label>Categoría</label><select id="fParejaCategoria"></select></div>
+          <div class="field"><label>Jugador 1 (apellido)</label><input id="fJugador1" list="playersList" placeholder="Pérez" /></div>
+          <div class="field"><label>Jugador 2 (apellido, opcional)</label><input id="fJugador2" list="playersList" placeholder="Gómez" /></div>
+        </div>
+        <div class="row">
+          <div class="field"><label>Nombre a mostrar</label><input id="fParejaNombre" placeholder="Se arma solo, pero lo podés editar" /></div>
+          <button class="btn-secondary" onclick="agregarPareja(this)">+ Agregar pareja</button>
+        </div>
+        <datalist id="playersList"></datalist>
+        <div id="parejaStatus"></div>
+        <table>
+          <thead><tr><th>Categoría</th><th>Pareja</th><th></th></tr></thead>
+          <tbody id="pairsTableBody"><tr class="empty-row"><td colspan="3">Todavía no hay parejas cargadas.</td></tr></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Partidos</h2>
+        <div class="row">
+          <div class="field"><label>Categoría</label><select id="fPartidoCategoria"></select></div>
+          <div class="field"><label>N.° de partido</label><input id="fPartidoNumero" type="number" min="1" /></div>
+          <div class="field"><label>Cancha</label><select id="fPartidoCancha"></select></div>
+          <div class="field"><label>Tantos a jugar</label><input id="fPartidoMax" type="number" value="30" min="1" /></div>
+        </div>
+        <div class="row">
+          <div class="side-row" style="flex:1;">
+            <div class="field">
+              <label>Lado A</label>
+              <select id="fLadoATipo" onchange="renderLadoValor('A')"><option value="pareja">Pareja existente</option><option value="winner_of">Ganador de partido N°</option><option value="loser_of">Perdedor de partido N°</option><option value="vacio">Por definir</option></select>
+            </div>
+            <div class="field" id="fLadoAValorWrap">
+              <label>&nbsp;</label>
+              <select id="fLadoAValor"></select>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="side-row" style="flex:1;">
+            <div class="field">
+              <label>Lado B</label>
+              <select id="fLadoBTipo" onchange="renderLadoValor('B')"><option value="pareja">Pareja existente</option><option value="winner_of">Ganador de partido N°</option><option value="loser_of">Perdedor de partido N°</option><option value="vacio">Por definir</option></select>
+            </div>
+            <div class="field" id="fLadoBValorWrap">
+              <label>&nbsp;</label>
+              <select id="fLadoBValor"></select>
+            </div>
+          </div>
+        </div>
+        <button class="btn-secondary" onclick="agregarPartido(this)">+ Agregar partido</button>
+        <div id="partidoStatus"></div>
+        <table>
+          <thead><tr><th>#</th><th>Cat</th><th>Lado A</th><th></th><th>Lado B</th><th>Cancha</th><th></th></tr></thead>
+          <tbody id="matchesTableBody"><tr class="empty-row"><td colspan="7">Todavía no hay partidos cargados.</td></tr></tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script src="ui-alert.js"></script>
+<script src="auth.js"></script>
+<script src="importar-logic.js"></script>
+<script>
+  var client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  function escapeHtml(s) {
+    return String(s || "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+  }
+
+  // ------------------------------------------------------------
+  // Igual que en importar-fixture.html: esta pantalla crea torneos,
+  // categorías, parejas y partidos — solo un admin activo puede
+  // entrar. La base (RLS) rechaza igual las escrituras si alguien
+  // se salta esta pantalla, pero esto evita mostrar el formulario.
+  // ------------------------------------------------------------
+  async function checkAccess() {
+    const { session, profile } = await authRenderInto("authBar");
+    const blockedEl = document.getElementById("accessBlocked");
+    const contentEl = document.getElementById("builderContent");
+
+    let allowed = false;
+    let msg = "";
+    if (!session) {
+      msg = "Iniciá sesión con Google (como admin) para armar un torneo.";
+    } else if (!profile || !profile.active) {
+      msg = "Tu cuenta todavía no fue activada por un admin.";
+    } else if (profile.role !== "admin") {
+      msg = "Solo un administrador puede armar un torneo.";
+    } else {
+      allowed = true;
+    }
+
+    if (allowed) {
+      blockedEl.classList.add("hidden");
+      contentEl.classList.remove("hidden");
+      boot();
+    } else {
+      blockedEl.textContent = msg;
+      blockedEl.classList.remove("hidden");
+      contentEl.classList.add("hidden");
+    }
+    return allowed;
+  }
+  checkAccess();
+  authWatch("authBar", () => checkAccess());
+
+  // ------------------------------------------------------------
+  // Estado en memoria del torneo que se está armando.
+  // ------------------------------------------------------------
+  const params = new URLSearchParams(window.location.search);
+  let tournamentId = params.get("t");
+  let tournament = null;
+  let tournamentDayId = null;
+  let courts = [];
+  let categoriasUsadas = [];   // [{id, name}]
+  let pairs = [];              // [{id, category_id, display_name}]
+  let matches = [];            // [{id, match_number, category_id, court_id, team_a_name, team_b_name}]
+  let playersRoster = [];      // [{id, last_name, display_name}]
+  let bootedOnce = false;
+
+  function boot() {
+    if (bootedOnce) return;
+    bootedOnce = true;
+    if (tournamentId) {
+      document.getElementById("stepManage").classList.remove("hidden");
+      loadTournament();
+    } else {
+      document.getElementById("stepCrear").classList.remove("hidden");
+    }
+  }
+
+  async function crearTorneo(btnEl) {
+    const nombre = document.getElementById("fNombre").value.trim();
+    if (!nombre) {
+      showAlert("Ponele un nombre al torneo.", { type: "warn" });
+      return;
+    }
+    btnEl.disabled = true;
+    document.getElementById("crearStatus").innerHTML = '<div class="status-msg ok">Creando…</div>';
+    try {
+      const seasonYear = parseInt(document.getElementById("fAnio").value) || new Date().getFullYear();
+      const { data: season, error: seasonErr } = await client.from("seasons")
+        .upsert({ year: seasonYear }, { onConflict: "year" }).select().single();
+      if (seasonErr) throw seasonErr;
+
+      const { data: torneo, error: torneoErr } = await client.from("tournaments").insert({
+        season_id: season.id,
+        name: nombre,
+        venue: document.getElementById("fSede").value.trim() || null,
+        status: "draft",
+      }).select().single();
+      if (torneoErr) throw torneoErr;
+
+      const fecha = document.getElementById("fFecha").value || null;
+      if (fecha) {
+        await client.from("tournament_days").insert({
+          tournament_id: torneo.id, play_date: fecha,
+          default_start_time: document.getElementById("fHoraInicio").value || null,
+        });
+      }
+
+      const canchaNombre = document.getElementById("fCancha").value.trim() || "Cancha principal";
+      await client.from("courts").insert({ tournament_id: torneo.id, name: canchaNombre });
+
+      // Recargamos la pagina con ?t=<id> — asi se puede volver a este
+      // mismo link mas adelante para seguir cargando parejas/partidos.
+      window.location.href = `nuevo-torneo.html?t=${torneo.id}`;
+    } catch (err) {
+      document.getElementById("crearStatus").innerHTML =
+        `<div class="status-msg err">No se pudo crear: ${escapeHtml(err.message || String(err))}</div>`;
+      btnEl.disabled = false;
+    }
+  }
+
+  async function loadTournament() {
+    const { data: t, error } = await client.from("tournaments").select("*").eq("id", tournamentId).single();
+    if (error || !t) {
+      document.getElementById("stepManage").innerHTML =
+        '<div class="status-msg err">No se encontró este torneo.</div>';
+      return;
+    }
+    tournament = t;
+    document.getElementById("tHeadName").textContent = t.name;
+    document.getElementById("tHeadStatus").textContent = t.status === "draft" ? "BORRADOR — publicalo desde Torneos" : t.status.toUpperCase();
+    document.getElementById("tHeadLink").href = `torneos.html?t=${t.id}`;
+
+    const { data: day } = await client.from("tournament_days").select("id").eq("tournament_id", tournamentId).limit(1).maybeSingle();
+    tournamentDayId = day ? day.id : null;
+
+    await Promise.all([loadCourts(), loadCategoriasUsadas(), loadPairs(), loadMatches(), loadPlayersRoster()]);
+  }
+
+  async function loadCourts() {
+    const { data } = await client.from("courts").select("*").eq("tournament_id", tournamentId).order("name");
+    courts = data || [];
+    renderCourts();
+  }
+
+  function renderCourts() {
+    const chipsEl = document.getElementById("courtsChips");
+    chipsEl.innerHTML = courts.length
+      ? courts.map(c => `<span class="chip">${escapeHtml(c.name)}</span>`).join("")
+      : '<span class="chip empty">Sin canchas todavía</span>';
+
+    const sel = document.getElementById("fPartidoCancha");
+    const prev = sel.value;
+    sel.innerHTML = courts.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("");
+    if (prev && courts.some(c => c.id === prev)) sel.value = prev;
+  }
+
+  async function agregarCancha() {
+    const nombre = document.getElementById("fNuevaCancha").value.trim();
+    if (!nombre) return;
+    const { error } = await client.from("courts").insert({ tournament_id: tournamentId, name: nombre });
+    if (error) { showAlert("No se pudo agregar la cancha: " + error.message, { type: "error" }); return; }
+    document.getElementById("fNuevaCancha").value = "";
+    await loadCourts();
+  }
+
+  // ------------------------------------------------------------
+  // No existe una tabla "torneo x categoria" — una categoria queda
+  // "usada" en este torneo en cuanto alguna pareja o partido la
+  // referencia. Por eso esto junta las categorias de ambos lugares.
+  // ------------------------------------------------------------
+  async function loadCategoriasUsadas() {
+    const [{ data: fromPairs }, { data: fromMatches }] = await Promise.all([
+      client.from("tournament_pairs").select("category_id, categories(id, name)").eq("tournament_id", tournamentId),
+      client.from("matches").select("category_id, categories(id, name)").eq("tournament_id", tournamentId),
+    ]);
+    const seen = {};
+    [...(fromPairs || []), ...(fromMatches || [])].forEach(row => {
+      if (row.categories) seen[row.categories.id] = row.categories.name;
+    });
+    categoriasUsadas = Object.entries(seen).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+    renderCategorias();
+  }
+
+  function renderCategorias() {
+    const chipsEl = document.getElementById("catsChips");
+    chipsEl.innerHTML = categoriasUsadas.length
+      ? categoriasUsadas.map(c => `<span class="chip">${escapeHtml(c.name)}</span>`).join("")
+      : '<span class="chip empty">Sin categorías todavía</span>';
+
+    [document.getElementById("fParejaCategoria"), document.getElementById("fPartidoCategoria")].forEach(sel => {
+      const prev = sel.value;
+      sel.innerHTML = categoriasUsadas.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("");
+      if (prev && categoriasUsadas.some(c => c.id === prev)) sel.value = prev;
+    });
+    renderLadoValor("A");
+    renderLadoValor("B");
+  }
+
+  async function agregarCategoria() {
+    const nombre = document.getElementById("fNuevaCategoria").value.trim();
+    if (!nombre) return;
+    const { data, error } = await client.from("categories")
+      .upsert({ name: nombre }, { onConflict: "name" }).select().single();
+    if (error) { showAlert("No se pudo agregar la categoría: " + error.message, { type: "error" }); return; }
+    document.getElementById("fNuevaCategoria").value = "";
+    if (!categoriasUsadas.some(c => c.id === data.id)) {
+      categoriasUsadas.push({ id: data.id, name: data.name });
+      categoriasUsadas.sort((a, b) => a.name.localeCompare(b.name));
+      renderCategorias();
+    }
+  }
+
+  async function loadPlayersRoster() {
+    const { data } = await client.from("players").select("id, last_name, display_name").order("last_name").limit(2000);
+    playersRoster = data || [];
+    document.getElementById("playersList").innerHTML =
+      playersRoster.map(p => `<option value="${escapeHtml(p.last_name)}">`).join("");
+  }
+
+  function findPlayerByLastName(text) {
+    const key = ImportarLogic.normalizeKey(text);
+    return playersRoster.find(p => ImportarLogic.normalizeKey(p.last_name || "") === key) || null;
+  }
+
+  async function resolveOrCreatePlayer(text) {
+    const existing = findPlayerByLastName(text);
+    if (existing) return existing.id;
+    const nombre = ImportarLogic.titleCase(text);
+    const { data, error } = await client.from("players").insert({ last_name: nombre, display_name: nombre }).select().single();
+    if (error) throw error;
+    playersRoster.push({ id: data.id, last_name: data.last_name, display_name: data.display_name });
+    return data.id;
+  }
+
+  // Arma solo el nombre a mostrar mientras el admin escribe, pero
+  // sin pisarle un valor que ya haya editado a mano.
+  let nombreParejaTocadoAMano = false;
+  document.getElementById("fParejaNombre").addEventListener("input", () => { nombreParejaTocadoAMano = true; });
+  function actualizarNombreParejaSugerido() {
+    if (nombreParejaTocadoAMano) return;
+    const j1 = document.getElementById("fJugador1").value.trim();
+    const j2 = document.getElementById("fJugador2").value.trim();
+    const partes = [j1, j2].filter(Boolean).map(x => ImportarLogic.titleCase(x));
+    document.getElementById("fParejaNombre").value = partes.join(" / ");
+  }
+  document.getElementById("fJugador1").addEventListener("input", actualizarNombreParejaSugerido);
+  document.getElementById("fJugador2").addEventListener("input", actualizarNombreParejaSugerido);
+
+  async function loadPairs() {
+    const { data } = await client.from("tournament_pairs").select("*, categories(name)").eq("tournament_id", tournamentId).order("display_name");
+    pairs = data || [];
+    renderPairs();
+  }
+
+  function renderPairs() {
+    const tbody = document.getElementById("pairsTableBody");
+    tbody.innerHTML = pairs.length ? pairs.map(p => `
+      <tr>
+        <td>${escapeHtml(p.categories ? p.categories.name : "—")}</td>
+        <td>${escapeHtml(p.display_name)}</td>
+        <td><button class="btn-danger btn-small" onclick="eliminarPareja('${p.id}')">Borrar</button></td>
+      </tr>
+    `).join("") : '<tr class="empty-row"><td colspan="3">Todavía no hay parejas cargadas.</td></tr>';
+
+    [document.getElementById("fLadoAValor"), document.getElementById("fLadoBValor")].forEach(() => {});
+    renderLadoValor("A");
+    renderLadoValor("B");
+  }
+
+  async function agregarPareja(btnEl) {
+    const categoryId = document.getElementById("fParejaCategoria").value;
+    const j1 = document.getElementById("fJugador1").value.trim();
+    const j2 = document.getElementById("fJugador2").value.trim();
+    const nombreManual = document.getElementById("fParejaNombre").value.trim();
+    const statusEl = document.getElementById("parejaStatus");
+
+    if (!categoryId) { showAlert("Agregá primero una categoría.", { type: "warn" }); return; }
+    if (!j1) { showAlert("Falta el primer jugador de la pareja.", { type: "warn" }); return; }
+
+    btnEl.disabled = true;
+    statusEl.innerHTML = '<div class="status-msg ok">Guardando…</div>';
+    try {
+      const player1Id = await resolveOrCreatePlayer(j1);
+      const player2Id = j2 ? await resolveOrCreatePlayer(j2) : null;
+      const displayName = nombreManual || [j1, j2].filter(Boolean).map(x => ImportarLogic.titleCase(x)).join(" / ");
+
+      const { error } = await client.from("tournament_pairs").insert({
+        tournament_id: tournamentId, category_id: categoryId,
+        player_1_id: player1Id, player_2_id: player2Id,
+        display_name: displayName, raw_display_name: displayName,
+      });
+      if (error) throw error;
+
+      document.getElementById("fJugador1").value = "";
+      document.getElementById("fJugador2").value = "";
+      document.getElementById("fParejaNombre").value = "";
+      nombreParejaTocadoAMano = false;
+      statusEl.innerHTML = "";
+      await loadPairs();
+    } catch (err) {
+      statusEl.innerHTML = `<div class="status-msg err">No se pudo guardar: ${escapeHtml(err.message || String(err))}</div>`;
+    }
+    btnEl.disabled = false;
+  }
+
+  async function eliminarPareja(id) {
+    const ok = await showConfirm("¿Borrar esta pareja? Si ya está usada en algún partido, ese partido queda sin ese lado asignado (no se borra el partido).", { danger: true, okLabel: "Sí, borrar" });
+    if (!ok) return;
+    const { error } = await client.from("tournament_pairs").delete().eq("id", id);
+    if (error) { showAlert("No se pudo borrar: " + error.message, { type: "error" }); return; }
+    await loadPairs();
+    await loadMatches();
+  }
+
+  async function loadMatches() {
+    const { data } = await client.from("matches").select("*, categories(name), courts(name)").eq("tournament_id", tournamentId).order("sequence_order");
+    matches = data || [];
+    document.getElementById("fPartidoNumero").value = (matches.reduce((max, m) => Math.max(max, m.match_number || 0), 0) + 1);
+    renderMatches();
+    renderLadoValor("A");
+    renderLadoValor("B");
+  }
+
+  function renderMatches() {
+    const tbody = document.getElementById("matchesTableBody");
+    tbody.innerHTML = matches.length ? matches.map(m => `
+      <tr>
+        <td>${m.match_number ?? "—"}</td>
+        <td>${escapeHtml(m.categories ? m.categories.name : "—")}</td>
+        <td>${escapeHtml(m.team_a_name || "Por definir")}</td>
+        <td style="color:#8a94a6;">vs</td>
+        <td>${escapeHtml(m.team_b_name || "Por definir")}</td>
+        <td>${escapeHtml(m.courts ? m.courts.name : "—")}</td>
+        <td><button class="btn-danger btn-small" onclick="eliminarPartido('${m.id}')">Borrar</button></td>
+      </tr>
+    `).join("") : '<tr class="empty-row"><td colspan="7">Todavía no hay partidos cargados.</td></tr>';
+  }
+
+  // ------------------------------------------------------------
+  // El selector de "valor" del lado A/B cambia segun el tipo elegido:
+  // pareja existente (filtrada por la categoria tildada arriba),
+  // o el numero de un partido ya cargado (para "Ganador/Perdedor de
+  // partido N°").
+  // ------------------------------------------------------------
+  function renderLadoValor(lado) {
+    const tipo = document.getElementById(`fLado${lado}Tipo`).value;
+    const wrap = document.getElementById(`fLado${lado}ValorWrap`);
+    const catId = document.getElementById("fPartidoCategoria").value;
+
+    if (tipo === "vacio") {
+      wrap.style.display = "none";
+      return;
+    }
+    wrap.style.display = "block";
+
+    if (tipo === "pareja") {
+      const opciones = pairs.filter(p => !catId || p.category_id === catId);
+      wrap.innerHTML = `<label>&nbsp;</label><select id="fLado${lado}Valor">` +
+        (opciones.length
+          ? opciones.map(p => `<option value="${p.id}">${escapeHtml(p.display_name)}</option>`).join("")
+          : `<option value="">(no hay parejas en esta categoría)</option>`) +
+        `</select>`;
+    } else {
+      // winner_of / loser_of: referencia a otro partido por numero
+      const opciones = matches.filter(m => m.match_number != null);
+      wrap.innerHTML = `<label>&nbsp;</label><select id="fLado${lado}Valor">` +
+        (opciones.length
+          ? opciones.map(m => `<option value="${m.match_number}">Partido ${m.match_number} (${escapeHtml(m.team_a_name || "?")} vs ${escapeHtml(m.team_b_name || "?")})</option>`).join("")
+          : `<option value="">(todavía no hay otros partidos cargados)</option>`) +
+        `</select>`;
+    }
+  }
+  document.getElementById("fPartidoCategoria").addEventListener("change", () => { renderLadoValor("A"); renderLadoValor("B"); });
+
+  function leerLado(lado) {
+    const tipo = document.getElementById(`fLado${lado}Tipo`).value;
+    if (tipo === "vacio") return { tipo: "vacio" };
+    const valorEl = document.getElementById(`fLado${lado}Valor`);
+    const valor = valorEl ? valorEl.value : "";
+    if (!valor) return { tipo: "vacio" };
+    if (tipo === "pareja") {
+      const pareja = pairs.find(p => p.id === valor);
+      return { tipo: "pareja", pairId: valor, nombre: pareja ? pareja.display_name : "" };
+    }
+    // winner_of / loser_of
+    const refMatch = matches.find(m => String(m.match_number) === String(valor));
+    return {
+      tipo, refMatchNumber: parseInt(valor), refMatchId: refMatch ? refMatch.id : null,
+      nombre: `${tipo === "winner_of" ? "Ganador" : "Perdedor"} Partido ${valor}`,
+    };
+  }
+
+  async function agregarPartido(btnEl) {
+    const categoryId = document.getElementById("fPartidoCategoria").value;
+    const numero = parseInt(document.getElementById("fPartidoNumero").value);
+    const courtId = document.getElementById("fPartidoCancha").value;
+    const maxPoints = Math.max(1, parseInt(document.getElementById("fPartidoMax").value) || 30);
+    const statusEl = document.getElementById("partidoStatus");
+
+    if (!categoryId) { showAlert("Elegí una categoría.", { type: "warn" }); return; }
+    if (!numero) { showAlert("Falta el número de partido.", { type: "warn" }); return; }
+    if (!courtId) { showAlert("Agregá primero una cancha.", { type: "warn" }); return; }
+    if (matches.some(m => m.match_number === numero)) {
+      showAlert(`Ya existe el Partido ${numero} en este torneo. Usá otro número.`, { type: "warn" });
+      return;
+    }
+
+    const ladoA = leerLado("A");
+    const ladoB = leerLado("B");
+
+    btnEl.disabled = true;
+    statusEl.innerHTML = '<div class="status-msg ok">Guardando…</div>';
+    try {
+      const matchId = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random())).slice(0, 8);
+      const { data: nuevo, error } = await client.from("matches").insert({
+        id: matchId, label: `Partido ${numero}`,
+        team_a_name: ladoA.nombre || "Por definir", team_b_name: ladoB.nombre || "Por definir",
+        tournament_id: tournamentId, tournament_day_id: tournamentDayId,
+        category_id: categoryId, court_id: courtId,
+        match_number: numero, sequence_order: numero,
+        pair_a_id: ladoA.tipo === "pareja" ? ladoA.pairId : null,
+        pair_b_id: ladoB.tipo === "pareja" ? ladoB.pairId : null,
+        max_points: maxPoints,
+      }).select().single();
+      if (error) throw error;
+
+      for (const [side, lado] of [["A", ladoA], ["B", ladoB]]) {
+        if (lado.tipo === "winner_of" || lado.tipo === "loser_of") {
+          if (!lado.refMatchId) continue;
+          await client.from("match_slots").insert({
+            match_id: nuevo.id, side, source_type: lado.tipo,
+            source_match_id: lado.refMatchId, raw_source_text: lado.nombre,
+          });
+        }
+      }
+
+      document.getElementById("fPartidoNumero").value = numero + 1;
+      statusEl.innerHTML = "";
+      await loadCategoriasUsadas();
+      await loadMatches();
+    } catch (err) {
+      statusEl.innerHTML = `<div class="status-msg err">No se pudo guardar: ${escapeHtml(err.message || String(err))}</div>`;
+    }
+    btnEl.disabled = false;
+  }
+
+  async function eliminarPartido(id) {
+    const ok = await showConfirm("¿Borrar este partido? Si otro partido lo usaba como \"Ganador/Perdedor de Partido N°\", esa referencia también se borra.", { danger: true, okLabel: "Sí, borrar" });
+    if (!ok) return;
+    const { error } = await client.from("matches").delete().eq("id", id);
+    if (error) { showAlert("No se pudo borrar: " + error.message, { type: "error" }); return; }
+    await loadMatches();
+  }
+</script>
+</body>
+</html>
