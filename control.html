@@ -30,6 +30,7 @@
   }
   .status.connected { background: rgba(63, 217, 118, 0.15); color: #3fd976; }
   .status.disconnected { background: rgba(255, 75, 75, 0.15); color: #ff4b4b; }
+  .status.local { background: rgba(63, 169, 245, 0.15); color: #3fa9f5; }
 
   .back-link {
     display: block; text-align: center; font-size: 0.8rem; color: #8a94a6;
@@ -265,7 +266,7 @@
         </div>
       </div>
 
-      <div class="live-toggle">
+      <div class="live-toggle" id="liveToggleSection">
         <h2>Transmisión en vivo (opcional, para la pantalla pública)</h2>
         <div class="live-row">
           <input type="text" id="youtubeUrl" placeholder="Link de YouTube (opcional)" />
@@ -319,12 +320,11 @@
   const params = new URLSearchParams(window.location.search);
   const matchId = params.get("m");
 
-  if (!matchId) {
-    document.getElementById("errorScreen").style.display = "block";
-  } else {
-    document.getElementById("mainContent").style.display = "block";
-    init();
-  }
+  // Un partido "de prueba" (creado desde index.html sin cuenta) tiene
+  // un id que arranca con "local-": nunca toca Supabase, vive entero
+  // en localStorage de este navegador.
+  const isLocalMode = !!(matchId && matchId.startsWith("local-"));
+  const LOCAL_KEY = "localMatch:" + matchId;
 
   const defaultState = {
     id: null, label: "Partido",
@@ -335,6 +335,13 @@
     is_live: false, youtube_url: "", is_finished: false,
   };
   let currentState = { ...defaultState };
+
+  if (!matchId) {
+    document.getElementById("errorScreen").style.display = "block";
+  } else {
+    document.getElementById("mainContent").style.display = "block";
+    init();
+  }
 
   function setConnStatus(ok) {
     const el = document.getElementById("connStatus");
@@ -381,6 +388,10 @@
   }
 
   async function init() {
+    if (isLocalMode) {
+      initLocal();
+      return;
+    }
     const { data, error } = await client.from("matches").select("*").eq("id", matchId).single();
     if (error || !data) {
       document.getElementById("mainContent").style.display = "none";
@@ -407,9 +418,44 @@
     }, 1000);
   }
 
-  async function writeState(patch) {
-    currentState = { ...currentState, ...patch };
+  // ------------------------------------------------------------
+  // Modo prueba: no hay login, no hay conexion a Supabase, no hay
+  // pantalla publica. El tablero se ve directo y todo se guarda en
+  // localStorage bajo la clave LOCAL_KEY.
+  // ------------------------------------------------------------
+  function initLocal() {
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(LOCAL_KEY)); } catch (e) { /* ignorar */ }
+    if (!saved) {
+      document.getElementById("mainContent").style.display = "none";
+      document.getElementById("errorScreen").style.display = "block";
+      return;
+    }
+    currentState = saved;
+    document.getElementById("matchLabel").textContent = saved.label + " (modo prueba)";
     render();
+    renderLive();
+
+    document.getElementById("accessScreen").style.display = "none";
+    document.getElementById("board").classList.add("visible");
+    document.getElementById("liveToggleSection").style.display = "none";
+
+    const statusEl = document.getElementById("connStatus");
+    statusEl.textContent = "🧪 Modo prueba — se guarda solo en este dispositivo";
+    statusEl.className = "status local";
+
+    setInterval(() => {
+      document.getElementById("timerDisplay").textContent = formatTime(computeTimerSeconds());
+    }, 1000);
+  }
+
+  async function writeState(patch) {
+    currentState = { ...currentState, ...patch, updated_at: new Date().toISOString() };
+    render();
+    if (isLocalMode) {
+      localStorage.setItem(LOCAL_KEY, JSON.stringify(currentState));
+      return;
+    }
     await client.from("matches").update(patch).eq("id", matchId);
   }
 
@@ -524,6 +570,13 @@
   }
 
   async function finishMatch() {
+    if (isLocalMode) {
+      // No hay cruces de torneo ni auditoria que resolver: guarda
+      // directo en localStorage y listo.
+      await writeState({ is_finished: true, is_live: false });
+      window.location.href = "index.html";
+      return;
+    }
     // Usa finalize_match() cuando existe: ademas de guardar el
     // resultado, resuelve los cruces "Ganador Partido N" que
     // dependan de este partido (si es un partido de torneo) y deja

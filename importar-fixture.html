@@ -168,6 +168,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="supabase-config.js"></script>
+<script src="ui-alert.js"></script>
 <script src="auth.js"></script>
 <script src="importar-logic.js"></script>
 <script>
@@ -333,7 +334,7 @@
     const colB = parseInt(document.getElementById("colB").value);
 
     if (colCat < 0 || colA < 0 || colB < 0) {
-      alert("Faltan columnas obligatorias: Categoría, Pareja A y Pareja B.");
+      showAlert("Faltan columnas obligatorias: Categoría, Pareja A y Pareja B.", { type: "warn" });
       return;
     }
 

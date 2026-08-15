@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pausa — Tanteador Racing Club TW (OBS)</title>
+<style>
+  * { box-sizing: border-box; }
+
+  /* Fondo transparente a proposito: en OBS, "Fuente de navegador" con
+     esta pagina va a mostrar SOLO la tarjeta, sin fondo de color, para
+     poder superponerla a la transmision. Para verla bien aca en el
+     navegador (fuera de OBS) igual se ve, solo que sobre blanco. */
+  html, body {
+    margin: 0; padding: 0; background: transparent;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh; overflow: hidden;
+  }
+
+  .pause-wrap {
+    position: relative;
+    width: 640px;
+    max-width: 92vw;
+    padding-top: 22px; /* deja lugar a la pastilla de categoria que sobresale */
+  }
+
+  /* Pastilla de categoria/torneo, flotando sobre el borde superior */
+  .cat-pill {
+    position: absolute;
+    top: 0; left: 50%; transform: translateX(-50%);
+    background: #0b1320; color: #ffcc00;
+    border: 2px solid #3a4256;
+    border-radius: 999px;
+    padding: 6px 20px;
+    font-size: 0.78rem; font-weight: 800; letter-spacing: 1.5px;
+    text-transform: uppercase;
+    white-space: nowrap;
+    z-index: 3;
+  }
+
+  .pause-card {
+    position: relative;
+    margin-top: 14px;
+    background: linear-gradient(180deg, #1b2433 0%, #141b28 100%);
+    border-radius: 28px;
+    padding: 34px 30px 22px;
+    border: 2px solid #3a4256;
+    box-shadow:
+      0 0 0 1px rgba(63,169,245,0.15),
+      0 18px 50px rgba(0,0,0,0.55),
+      0 0 40px rgba(63,169,245,0.18);
+    overflow: hidden;
+  }
+
+  .status-tag {
+    text-align: center;
+    color: #ff9d4b;
+    background: rgba(255,157,75,0.14);
+    border: 1px solid rgba(255,157,75,0.35);
+    border-radius: 999px;
+    display: inline-block;
+    padding: 4px 14px;
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 1px;
+    text-transform: uppercase;
+    position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+  }
+
+  .teams-row {
+    display: flex; align-items: center; justify-content: center;
+    gap: 0; margin-top: 26px;
+  }
+
+  .team-block {
+    flex: 1; min-width: 0; text-align: center; padding: 0 14px;
+  }
+  .team-block .team-name {
+    font-size: 1.05rem; font-weight: 800; color: #fff;
+    line-height: 1.25; margin-bottom: 10px;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    overflow: hidden; text-overflow: ellipsis;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  }
+
+  /* Pelotita que marca quien saca — mismo lenguaje visual que la
+     pantalla de control (control.html). */
+  .serve-row {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    min-height: 16px; margin-bottom: 4px;
+  }
+  .serve-ball {
+    width: 11px; height: 11px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #fbff5c, #d7d400 75%);
+    box-shadow: 0 0 8px rgba(255, 247, 0, 0.85);
+    opacity: 0; transform: scale(0.4);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+  .serve-ball.active { opacity: 1; transform: scale(1); }
+  .team-block .team-score {
+    font-size: 3.6rem; font-weight: 900; font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  .team-block.a .team-score { color: #ff4b4b; text-shadow: 0 0 24px rgba(255,75,75,0.45); }
+  .team-block.b .team-score { color: #3fa9f5; text-shadow: 0 0 24px rgba(63,169,245,0.45); }
+
+  .vs-badge {
+    flex: none;
+    width: 46px; height: 46px; border-radius: 50%;
+    background: #0b1320; border: 2px solid #3a4256;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 900; font-size: 0.95rem; color: #8a94a6;
+    margin: 0 4px;
+  }
+
+  .match-meta {
+    text-align: center; margin-top: 22px;
+    color: #8a94a6; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.5px;
+  }
+
+  /* Franja de color al pie, con los colores de marca del sitio */
+  .bottom-stripe {
+    height: 8px; border-radius: 8px; margin-top: 18px;
+    background: linear-gradient(90deg,
+      #ffcc00 0%, #ffcc00 25%,
+      #3fa9f5 25%, #3fa9f5 50%,
+      #ff4b4b 50%, #ff4b4b 75%,
+      #3fd976 75%, #3fd976 100%);
+  }
+</style>
+</head>
+<body>
+
+<div class="pause-wrap">
+  <div class="cat-pill" id="catPill">Categoría A1</div>
+  <div class="pause-card">
+    <div class="status-tag">⏸ Partido en pausa</div>
+    <div class="teams-row">
+      <div class="team-block a">
+        <div class="serve-row">
+          <div class="serve-ball active" id="ballA"></div>
+        </div>
+        <div class="team-name" id="nameA">Pérez / Gómez</div>
+        <div class="team-score" id="scoreA">18</div>
+      </div>
+      <div class="vs-badge">V</div>
+      <div class="team-block b">
+        <div class="serve-row">
+          <div class="serve-ball" id="ballB"></div>
+        </div>
+        <div class="team-name" id="nameB">López / Díaz</div>
+        <div class="team-score" id="scoreB">15</div>
+      </div>
+    </div>
+    <div class="match-meta" id="matchMeta">Partido N.° 14 · Cancha 2 · a 30 tantos</div>
+  </div>
+  <div class="bottom-stripe"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script>
+  // ------------------------------------------------------------
+  // Vista de "pausa" para OBS: en vez del marcador en vivo de siempre
+  // (display.html), esta pantalla muestra el resultado actual con una
+  // presentacion mas prolija, pensada para dejarla puesta durante los
+  // cortes/descansos del partido. Se actualiza sola si el marcador
+  // cambia mientras esta con esta escena puesta.
+  //
+  // Uso en OBS: agregar como "Fuente de navegador" apuntando a
+  //   pausa.html?m=<id-del-partido>
+  // con fondo transparente (esta pagina ya no pinta fondo).
+  //
+  // Sin el parametro ?m=, o mientras carga, se ve con datos de
+  // ejemplo (los que ya estan escritos en el HTML) — asi sirve como
+  // vista previa del diseño sin necesidad de un partido real.
+  // ------------------------------------------------------------
+  const params = new URLSearchParams(window.location.search);
+  const matchId = params.get("m");
+
+  if (matchId) {
+    var client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    function render(m) {
+      if (!m) return;
+      document.getElementById("nameA").textContent = m.team_a_name || "Local";
+      document.getElementById("nameB").textContent = m.team_b_name || "Visitante";
+      document.getElementById("scoreA").textContent = m.score_a ?? 0;
+      document.getElementById("scoreB").textContent = m.score_b ?? 0;
+
+      document.getElementById("ballA").classList.toggle("active", m.server === "A");
+      document.getElementById("ballB").classList.toggle("active", m.server === "B");
+
+      const catEl = document.getElementById("catPill");
+      const catName = m.categories ? m.categories.name : null;
+      catEl.textContent = catName || m.label || "Partido";
+      catEl.style.display = catName || m.label ? "block" : "none";
+
+      const metaParts = [];
+      if (m.match_number != null) metaParts.push(`Partido N.° ${m.match_number}`);
+      if (m.court_id && m.courts && m.courts.name) metaParts.push(m.courts.name);
+      if (m.max_points) metaParts.push(`a ${m.max_points} tantos`);
+      document.getElementById("matchMeta").textContent = metaParts.join(" · ");
+    }
+
+    async function load() {
+      const { data } = await client
+        .from("matches")
+        .select("*, categories(name), courts(name)") // "*" ya trae "server"
+        .eq("id", matchId)
+        .single();
+      render(data);
+    }
+
+    load();
+    client
+      .channel("pausa-" + matchId)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "matches", filter: `id=eq.${matchId}` },
+        (payload) => render(payload.new))
+      .subscribe();
+  }
+</script>
+</body>
+</html>

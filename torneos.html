@@ -204,6 +204,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
 <script src="push-config.js"></script>
+<script src="ui-alert.js"></script>
 <script src="auth.js"></script>
 <script>
   var client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -291,7 +292,7 @@
       markPairSubscribed(pairId);
       btnEl.outerHTML = `<span class="sub-check" title="Ya estás anotado para avisos de ${escapeHtml(label)}">✅</span>`;
     } catch (err) {
-      alert("No se pudo activar el aviso: " + err.message);
+      showAlert("No se pudo activar el aviso: " + err.message, { type: "error" });
       btnEl.textContent = originalText;
       btnEl.disabled = false;
     }
@@ -687,7 +688,7 @@
       .eq("id", matchId);
     selectEl.disabled = false;
     if (error) {
-      alert("No se pudo asignar: " + error.message);
+      showAlert("No se pudo asignar: " + error.message, { type: "error" });
       selectEl.value = previousValue;
       return;
     }
@@ -700,10 +701,11 @@
   }
 
   async function publicarTorneo(id) {
-    if (!confirm("¿Publicar este torneo? Va a quedar visible para todos.")) return;
+    const ok = await showConfirm("¿Publicar este torneo? Va a quedar visible para todos.", { okLabel: "Sí, publicar" });
+    if (!ok) return;
     const { error } = await client.from("tournaments").update({ status: "published" }).eq("id", id);
     if (error) {
-      alert("No se pudo publicar: " + error.message);
+      showAlert("No se pudo publicar: " + error.message, { type: "error" });
       return;
     }
     loadTournamentDetail(id);
@@ -718,24 +720,26 @@
   // ------------------------------------------------------------
   async function borrarTorneo(id, btnEl) {
     const name = btnEl.dataset.name || "";
-    const typed = prompt(
-      `Esto borra "${name}" Y TODOS sus partidos, parejas y canchas. No se puede deshacer.\n\nPara confirmar, escribí el nombre exacto del torneo:`
+    const typed = await showPrompt(
+      `Esto borra "${name}" Y TODOS sus partidos, parejas y canchas. No se puede deshacer.\n\nPara confirmar, escribí el nombre exacto del torneo:`,
+      {
+        title: "Borrar torneo",
+        placeholder: name,
+        okLabel: "Borrar",
+        validate: (v) => (v.trim() !== name ? "El nombre no coincide." : null),
+      }
     );
     if (typed === null) return; // cancelado
-    if (typed.trim() !== name) {
-      alert("El nombre no coincide, no se borró nada.");
-      return;
-    }
     btnEl.disabled = true;
     btnEl.textContent = "Borrando...";
     const { error } = await client.from("tournaments").delete().eq("id", id);
     if (error) {
-      alert("No se pudo borrar: " + error.message);
+      showAlert("No se pudo borrar: " + error.message, { type: "error" });
       btnEl.disabled = false;
       btnEl.textContent = "🗑️ Borrar torneo";
       return;
     }
-    alert("Torneo borrado.");
+    await showAlert("Torneo borrado.", { type: "success" });
     location.href = "torneos.html";
   }
 

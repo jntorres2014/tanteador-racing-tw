@@ -56,13 +56,15 @@
 
   .match-score { font-size: 1rem; color: #ccc; margin-bottom: 10px; }
 
-  .match-links { display: flex; gap: 8px; }
+  .match-links { display: flex; gap: 8px; flex-wrap: wrap; }
   .match-links a {
-    flex: 1; text-align: center; text-decoration: none; font-size: 0.82rem; font-weight: 600;
+    flex: 1; min-width: 100px; text-align: center; text-decoration: none; font-size: 0.82rem; font-weight: 600;
     padding: 8px; border-radius: 8px;
   }
   .link-control { background: #3fa9f5; color: #fff; }
   .link-display { background: #3a4256; color: #fff; }
+  .link-pausa { background: #3a4256; color: #ff9d4b; }
+  .link-combo { background: #3a4256; color: #3fd976; }
 
   .empty { text-align: center; color: #8a94a6; padding: 20px; font-size: 0.9rem; }
 
@@ -92,6 +94,18 @@
   }
   .modal-btn-cancel { background: #3a4256; color: #fff; }
   .modal-btn-confirm { background: #ffcc00; color: #0b1320; }
+  .modal-btn-test { background: #3fa9f5; color: #fff; }
+  .modal-actions.stacked { flex-direction: column; }
+  .modal-hint { font-size: 0.76rem; color: #8a94a6; text-align: center; margin: -8px 0 14px; }
+
+  .local-badge {
+    background: rgba(63,169,245,0.15); color: #3fa9f5; font-size: 0.68rem; font-weight: 700;
+    padding: 3px 8px; border-radius: 10px;
+  }
+  .match-card .del-local {
+    background: transparent; border: none; color: #8a94a6; font-size: 0.78rem;
+    cursor: pointer; text-decoration: underline; padding: 0; flex: none;
+  }
 
   /* Barra de login (auth.js) */
   .auth-bar {
@@ -147,6 +161,11 @@
   <h2 class="section-title">Partidos activos</h2>
   <input type="text" id="searchBox" class="search-box" placeholder="Buscar por jugador, cancha, categoría, partido N°..." oninput="applyFilterAndRender()" />
   <div id="activeList"><div class="empty">Cargando...</div></div>
+
+  <div id="localSection" style="display:none;">
+    <h2 class="section-title">Tus partidos de prueba (solo en este dispositivo)</h2>
+    <div id="localList"></div>
+  </div>
 </div>
 
 <div class="modal-overlay" id="newMatchModal">
@@ -170,15 +189,18 @@
       <label>Tantos a jugar</label>
       <input type="number" id="modalMaxPoints" value="30" min="1" max="99" inputmode="numeric" />
     </div>
-    <div class="modal-actions">
+    <div class="modal-hint">"Solo probar" no pide cuenta y no se guarda en el sistema: queda únicamente en este dispositivo/navegador.</div>
+    <div class="modal-actions stacked">
+      <button class="modal-btn-test" onclick="confirmCrearPartido(false)">🧪 Solo probar (sin cuenta, no se guarda)</button>
+      <button class="modal-btn-confirm" onclick="confirmCrearPartido(true)">💾 Crear y guardar (necesita cuenta)</button>
       <button class="modal-btn-cancel" onclick="closeNewMatchModal()">Cancelar</button>
-      <button class="modal-btn-confirm" onclick="confirmCrearPartido()">Crear partido</button>
     </div>
   </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
+<script src="ui-alert.js"></script>
 <script src="auth.js"></script>
 <script>
   var client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -190,14 +212,14 @@
     return Math.random().toString(36).slice(2, 8);
   }
 
-  async function crearPartido() {
-    // Hace falta estar logueado (y activo) para crear un partido:
-    // el partido queda asignado automaticamente a quien lo crea.
-    const { data: sessionData } = await client.auth.getSession();
-    if (!sessionData || !sessionData.session) {
-      alert("Iniciá sesión con Google primero para crear un partido.");
-      return;
-    }
+  // ------------------------------------------------------------
+  // "+ Nuevo partido" ya no exige estar logueado para abrir el
+  // formulario: recien al confirmar se elige si el partido se guarda
+  // en el sistema (necesita cuenta) o si es solo para probar (queda
+  // unicamente en este dispositivo, via localStorage, sin tocar la
+  // base de datos ni pedir login).
+  // ------------------------------------------------------------
+  function crearPartido() {
     document.getElementById("modalLabel").value = "";
     document.getElementById("modalTeamA").value = "";
     document.getElementById("modalTeamB").value = "";
@@ -210,15 +232,36 @@
     document.getElementById("newMatchModal").classList.remove("open");
   }
 
-  async function confirmCrearPartido() {
+  async function confirmCrearPartido(guardarEnSistema) {
     const label = document.getElementById("modalLabel").value.trim() || "Partido";
     const teamA = document.getElementById("modalTeamA").value.trim() || "Local";
     const teamB = document.getElementById("modalTeamB").value.trim() || "Visitante";
     const maxPoints = Math.max(1, parseInt(document.getElementById("modalMaxPoints").value) || 30);
 
+    if (!guardarEnSistema) {
+      // Modo prueba: no toca la base de datos ni pide login. El
+      // partido vive solo en localStorage, con un id prefijado
+      // "local-" para que control.html sepa que no debe ir a buscarlo
+      // (ni guardarlo) en Supabase.
+      const id = "local-" + Date.now().toString(36) + genId();
+      const state = {
+        id, label, team_a_name: teamA, team_b_name: teamB,
+        score_a: 0, score_b: 0, server: null,
+        max_points: maxPoints, match_status: "playing",
+        timer_accumulated: 0, timer_running_since: null,
+        is_live: false, youtube_url: "", is_finished: false,
+        updated_at: new Date().toISOString(),
+      };
+      localStorage.setItem("localMatch:" + id, JSON.stringify(state));
+      window.location.href = `control.html?m=${id}`;
+      return;
+    }
+
+    // Hace falta estar logueado (y activo) para guardarlo en el
+    // sistema: el partido queda asignado automaticamente a quien lo crea.
     const { data: sessionData } = await client.auth.getSession();
     if (!sessionData || !sessionData.session) {
-      alert("Se cerró tu sesión. Iniciá sesión de nuevo para crear el partido.");
+      showAlert("Iniciá sesión con Google primero para guardar un partido en el sistema. Si solo querés probar, usá la otra opción.", { type: "warn" });
       return;
     }
 
@@ -228,10 +271,60 @@
       referee_user_id: sessionData.session.user.id,
     });
     if (error) {
-      alert("No se pudo crear el partido: " + error.message);
+      showAlert("No se pudo crear el partido: " + error.message, { type: "error" });
       return;
     }
     window.location.href = `control.html?m=${id}`;
+  }
+
+  // ------------------------------------------------------------
+  // Partidos de prueba: viven solo en localStorage de este navegador,
+  // asi que se listan aparte (no vienen de Supabase, no los ve nadie
+  // mas, y se pierden si se cambia de dispositivo o se borran datos).
+  // ------------------------------------------------------------
+  function getLocalMatches() {
+    const out = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key || !key.startsWith("localMatch:")) continue;
+      try {
+        out.push(JSON.parse(localStorage.getItem(key)));
+      } catch (e) { /* entrada corrupta, se ignora */ }
+    }
+    out.sort((a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0));
+    return out;
+  }
+
+  function renderLocalMatches() {
+    const matches = getLocalMatches();
+    const sectionEl = document.getElementById("localSection");
+    const listEl = document.getElementById("localList");
+    if (matches.length === 0) {
+      sectionEl.style.display = "none";
+      return;
+    }
+    sectionEl.style.display = "block";
+    listEl.innerHTML = matches.map((m) => `
+      <div class="match-card ${m.is_live ? "live" : ""}">
+        <div class="match-top">
+          <div class="match-label">${escapeHtml(m.label)}</div>
+          <div class="local-badge">🧪 Prueba local</div>
+        </div>
+        <div class="match-score">
+          ${escapeHtml(m.team_a_name)} ${m.score_a} — ${m.score_b} ${escapeHtml(m.team_b_name)}
+          ${m.is_finished ? " · Finalizado" : ""}
+        </div>
+        <div class="match-links">
+          <a class="link-control" href="control.html?m=${m.id}">Control</a>
+          <button class="del-local" onclick="borrarPartidoLocal('${m.id}')">Borrar</button>
+        </div>
+      </div>
+    `).join("");
+  }
+
+  function borrarPartidoLocal(id) {
+    localStorage.removeItem("localMatch:" + id);
+    renderLocalMatches();
   }
 
   function renderList(matches, searchTerm) {
@@ -252,6 +345,8 @@
         <div class="match-links">
           <a class="link-control" href="control.html?m=${m.id}">Control</a>
           <a class="link-display" href="display.html?m=${m.id}" target="_blank">Display (OBS)</a>
+          <a class="link-pausa" href="pausa.html?m=${m.id}" target="_blank">Pausa (OBS)</a>
+          <a class="link-combo" href="obs-tableros.html?m=${m.id}" target="_blank">Los 2 juntos (OBS)</a>
         </div>
       </div>
     `).join("");
@@ -315,6 +410,7 @@
     .subscribe();
 
   loadActive();
+  renderLocalMatches();
 </script>
 </body>
 </html>

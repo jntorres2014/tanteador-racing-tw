@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>Tableros (Display + Pausa) — Tanteador Racing Club TW</title>
+<style>
+  * { box-sizing: border-box; }
+
+  /* Fondo transparente: pensado para usarse como UNA sola fuente de
+     navegador en OBS, con los dos tableros ya puestos uno al lado del
+     otro (no hace falta armar dos escenas). */
+  html, body {
+    margin: 0; padding: 0; background: transparent;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: #fff; overflow: hidden;
+  }
+  body {
+    display: flex; align-items: flex-start; justify-content: flex-start;
+    gap: 28px; padding: 16px;
+  }
+
+  /* ---------- Tablero 1: Display (marcador en vivo) ----------
+     Copia exacta de display.html, solo que los ids de adentro llevan
+     el prefijo "d-" para no chocar con los del tablero de pausa. */
+  .scoreboard {
+    background: rgba(11, 19, 32, 0.88);
+    border-radius: 16px; padding: 14px 18px;
+    border: 2px solid #3fa9f5; box-shadow: 0 0 30px rgba(0, 0, 0, 0.6);
+    min-width: 380px;
+  }
+  .scoreboard .top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .scoreboard .club-logo { width: 42px; height: 42px; object-fit: cover; border-radius: 8px; flex-shrink: 0; }
+  .scoreboard .title h1 { margin: 0; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 1.5px; }
+  .scoreboard .title h3 { margin: 2px 0 0; font-weight: 400; font-size: 0.7rem; color: #bcc4d1; }
+  .scoreboard .status-line { margin-left: auto; text-align: right; }
+  #d-matchStatus { font-size: 0.85rem; font-weight: 700; }
+  #d-timerDisplay { font-size: 0.85rem; color: #bcc4d1; font-variant-numeric: tabular-nums; }
+
+  .scoreboard .teams { display: flex; gap: 10px; }
+  .scoreboard .team {
+    flex: 1; background: rgba(34, 43, 58, 0.9); border-radius: 12px;
+    padding: 8px 10px; text-align: center; border: 2px solid #3fa9f5; min-width: 120px;
+  }
+  .scoreboard .team.a { border-color: #ff4b4b; }
+  .scoreboard .team.b { border-color: #3fa9f5; }
+
+  .scoreboard .team-name {
+    font-size: 0.85rem; font-weight: 700; display: flex; align-items: center;
+    justify-content: center; gap: 6px; margin-bottom: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  .scoreboard .server-ball {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #fbff5c, #d7d400 75%);
+    box-shadow: 0 0 6px rgba(255, 247, 0, 0.85);
+    opacity: 0; transform: scale(0.4);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    flex-shrink: 0;
+  }
+  .scoreboard .server-ball.active { opacity: 1; transform: scale(1); animation: bounce 1.4s ease-in-out infinite; }
+  @keyframes bounce { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-2px) scale(1); } }
+
+  .scoreboard .score { font-size: 2.6rem; font-weight: bold; line-height: 1; font-variant-numeric: tabular-nums; }
+
+  /* ---------- Tablero 2: Pausa (tarjeta de resultado) ----------
+     Copia de pausa.html, con ids prefijados "p-". */
+  .pause-wrap {
+    position: relative;
+    width: 460px;
+    padding-top: 22px;
+  }
+  .cat-pill {
+    position: absolute;
+    top: 0; left: 50%; transform: translateX(-50%);
+    background: #0b1320; color: #ffcc00;
+    border: 2px solid #3a4256;
+    border-radius: 999px;
+    padding: 6px 20px;
+    font-size: 0.72rem; font-weight: 800; letter-spacing: 1.5px;
+    text-transform: uppercase;
+    white-space: nowrap;
+    z-index: 3;
+  }
+  .pause-card {
+    position: relative;
+    margin-top: 14px;
+    background: linear-gradient(180deg, #1b2433 0%, #141b28 100%);
+    border-radius: 26px;
+    padding: 30px 24px 18px;
+    border: 2px solid #3a4256;
+    box-shadow:
+      0 0 0 1px rgba(63,169,245,0.15),
+      0 18px 50px rgba(0,0,0,0.55),
+      0 0 40px rgba(63,169,245,0.18);
+    overflow: hidden;
+  }
+  .status-tag {
+    text-align: center;
+    color: #ff9d4b;
+    background: rgba(255,157,75,0.14);
+    border: 1px solid rgba(255,157,75,0.35);
+    border-radius: 999px;
+    display: inline-block;
+    padding: 4px 14px;
+    font-size: 0.68rem; font-weight: 700; letter-spacing: 1px;
+    text-transform: uppercase;
+    position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+  }
+  .teams-row {
+    display: flex; align-items: center; justify-content: center;
+    gap: 0; margin-top: 24px;
+  }
+  .team-block { flex: 1; min-width: 0; text-align: center; padding: 0 10px; }
+  .team-block .team-name {
+    font-size: 0.95rem; font-weight: 800; color: #fff;
+    line-height: 1.25; margin-bottom: 8px;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    overflow: hidden; text-overflow: ellipsis;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  }
+  .team-block .team-score {
+    font-size: 3rem; font-weight: 900; font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  .team-block.a .team-score { color: #ff4b4b; text-shadow: 0 0 24px rgba(255,75,75,0.45); }
+  .team-block.b .team-score { color: #3fa9f5; text-shadow: 0 0 24px rgba(63,169,245,0.45); }
+  .vs-badge {
+    flex: none;
+    width: 40px; height: 40px; border-radius: 50%;
+    background: #0b1320; border: 2px solid #3a4256;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 900; font-size: 0.85rem; color: #8a94a6;
+    margin: 0 4px;
+  }
+  .serve-row {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 14px; margin-bottom: 4px;
+  }
+  .serve-ball {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #fbff5c, #d7d400 75%);
+    box-shadow: 0 0 8px rgba(255, 247, 0, 0.85);
+    opacity: 0; transform: scale(0.4);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+  .serve-ball.active { opacity: 1; transform: scale(1); }
+  .match-meta {
+    text-align: center; margin-top: 18px;
+    color: #8a94a6; font-size: 0.74rem; font-weight: 600; letter-spacing: 0.5px;
+  }
+  .bottom-stripe {
+    height: 7px; border-radius: 8px; margin-top: 16px;
+    background: linear-gradient(90deg,
+      #ffcc00 0%, #ffcc00 25%,
+      #3fa9f5 25%, #3fa9f5 50%,
+      #ff4b4b 50%, #ff4b4b 75%,
+      #3fd976 75%, #3fd976 100%);
+  }
+
+  .msg { text-align: center; font-size: 0.8rem; color: #ff8a8a; padding: 10px; }
+</style>
+</head>
+<body>
+
+  <!-- Tablero 1: marcador en vivo (igual a display.html) -->
+  <div class="scoreboard" id="scoreboard">
+    <div class="top">
+      <img class="club-logo" src="logo.png" alt="" />
+      <div class="title">
+        <h1 id="d-matchLabel">Trinquete Francisco García</h1>
+        <h3>Racing Club TW</h3>
+      </div>
+      <div class="status-line">
+        <div id="d-matchStatus">En juego</div>
+        <div id="d-timerDisplay">00:00</div>
+      </div>
+    </div>
+    <div class="teams">
+      <div class="team a">
+        <div class="team-name"><span id="d-nameA">Local</span><span class="server-ball" id="d-ballA"></span></div>
+        <div class="score" id="d-scoreA">0</div>
+      </div>
+      <div class="team b">
+        <div class="team-name"><span id="d-nameB">Visitante</span><span class="server-ball" id="d-ballB"></span></div>
+        <div class="score" id="d-scoreB">0</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tablero 2: tarjeta de pausa (igual a pausa.html) -->
+  <div class="pause-wrap" id="pauseWrap">
+    <div class="cat-pill" id="p-catPill">Categoría A1</div>
+    <div class="pause-card">
+      <div class="status-tag">⏸ Partido en pausa</div>
+      <div class="teams-row">
+        <div class="team-block a">
+          <div class="serve-row"><div class="serve-ball" id="p-ballA"></div></div>
+          <div class="team-name" id="p-nameA">Pérez / Gómez</div>
+          <div class="team-score" id="p-scoreA">18</div>
+        </div>
+        <div class="vs-badge">V</div>
+        <div class="team-block b">
+          <div class="serve-row"><div class="serve-ball" id="p-ballB"></div></div>
+          <div class="team-name" id="p-nameB">López / Díaz</div>
+          <div class="team-score" id="p-scoreB">15</div>
+        </div>
+      </div>
+      <div class="match-meta" id="p-matchMeta">Partido N.° 14 · Cancha 2 · a 30 tantos</div>
+    </div>
+    <div class="bottom-stripe"></div>
+  </div>
+
+  <div class="msg" id="msg" style="display:none;"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script>
+  // ------------------------------------------------------------
+  // Combina display.html (marcador en vivo) y pausa.html (tarjeta de
+  // resultado) en UNA sola pagina/fuente de OBS, uno al lado del
+  // otro. Comparten una sola consulta y una sola suscripcion en
+  // tiempo real — no hace falta duplicar nada, los dos se actualizan
+  // juntos con cada punto.
+  //
+  // Uso en OBS: una sola Fuente de navegador apuntando a
+  //   obs-tableros.html?m=<id-del-partido>
+  // con fondo transparente.
+  // ------------------------------------------------------------
+  const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const params = new URLSearchParams(window.location.search);
+  const matchId = params.get("m");
+
+  function showMsg(text) {
+    document.getElementById("scoreboard").style.display = text ? "none" : "block";
+    document.getElementById("pauseWrap").style.display = text ? "none" : "block";
+    document.getElementById("msg").style.display = text ? "block" : "none";
+    document.getElementById("msg").textContent = text || "";
+  }
+
+  if (!matchId) {
+    showMsg("Falta el ID del partido en el link (agregá ?m=codigo a la URL)");
+  } else {
+    init();
+  }
+
+  const defaultState = {
+    label: "Partido", team_a_name: "Local", team_b_name: "Visitante", score_a: 0, score_b: 0,
+    server: null, max_points: 30, match_status: "playing",
+    timer_accumulated: 0, timer_running_since: null,
+  };
+  let currentState = { ...defaultState };
+
+  async function init() {
+    const { data, error } = await client
+      .from("matches")
+      .select("*, categories(name), courts(name)")
+      .eq("id", matchId)
+      .single();
+    if (error || !data) {
+      showMsg("No se encontró este partido");
+      return;
+    }
+    currentState = data;
+    render();
+
+    client
+      .channel("obs-tableros-" + matchId)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "matches", filter: `id=eq.${matchId}` },
+        (payload) => { currentState = { ...currentState, ...payload.new }; render(); })
+      .subscribe((status) => {
+        if (status !== "SUBSCRIBED") showMsg("Sin conexión con el servidor de datos");
+        else showMsg(null);
+      });
+
+    setInterval(() => {
+      document.getElementById("d-timerDisplay").textContent = formatTime(computeTimerSeconds());
+    }, 1000);
+  }
+
+  function computeTimerSeconds() {
+    let secs = currentState.timer_accumulated || 0;
+    if (currentState.timer_running_since) secs += (Date.now() - currentState.timer_running_since) / 1000;
+    return Math.floor(secs);
+  }
+
+  function formatTime(seconds) {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  }
+
+  function render() {
+    const s = currentState;
+
+    // --- Tablero 1: display ---
+    document.getElementById("d-matchLabel").textContent = s.label || "Trinquete Francisco García";
+    document.getElementById("d-nameA").textContent = s.team_a_name;
+    document.getElementById("d-nameB").textContent = s.team_b_name;
+    document.getElementById("d-scoreA").textContent = s.score_a;
+    document.getElementById("d-scoreB").textContent = s.score_b;
+    document.getElementById("d-ballA").classList.toggle("active", s.server === "A");
+    document.getElementById("d-ballB").classList.toggle("active", s.server === "B");
+
+    const dStatusEl = document.getElementById("d-matchStatus");
+    if (s.match_status === "A") { dStatusEl.textContent = `Ganó ${s.team_a_name}`; dStatusEl.style.color = "#ff4b4b"; }
+    else if (s.match_status === "B") { dStatusEl.textContent = `Ganó ${s.team_b_name}`; dStatusEl.style.color = "#3fa9f5"; }
+    else { dStatusEl.textContent = "En juego"; dStatusEl.style.color = "#fff"; }
+
+    document.getElementById("d-timerDisplay").textContent = formatTime(computeTimerSeconds());
+
+    // --- Tablero 2: pausa ---
+    document.getElementById("p-nameA").textContent = s.team_a_name || "Local";
+    document.getElementById("p-nameB").textContent = s.team_b_name || "Visitante";
+    document.getElementById("p-scoreA").textContent = s.score_a ?? 0;
+    document.getElementById("p-scoreB").textContent = s.score_b ?? 0;
+    document.getElementById("p-ballA").classList.toggle("active", s.server === "A");
+    document.getElementById("p-ballB").classList.toggle("active", s.server === "B");
+
+    const catEl = document.getElementById("p-catPill");
+    const catName = s.categories ? s.categories.name : null;
+    catEl.textContent = catName || s.label || "Partido";
+    catEl.style.display = catName || s.label ? "block" : "none";
+
+    const metaParts = [];
+    if (s.match_number != null) metaParts.push(`Partido N.° ${s.match_number}`);
+    if (s.courts && s.courts.name) metaParts.push(s.courts.name);
+    if (s.max_points) metaParts.push(`a ${s.max_points} tantos`);
+    document.getElementById("p-matchMeta").textContent = metaParts.join(" · ");
+  }
+</script>
+</body>
+</html>

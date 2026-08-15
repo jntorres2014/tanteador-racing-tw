@@ -122,6 +122,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
+<script src="ui-alert.js"></script>
 <script src="auth.js"></script>
 <script>
   var client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -218,7 +219,7 @@
   async function cambiarActivo(userId, active) {
     const { error } = await client.from("profiles").update({ active }).eq("id", userId);
     if (error) {
-      alert("No se pudo actualizar: " + error.message);
+      showAlert("No se pudo actualizar: " + error.message, { type: "error" });
       return;
     }
     loadUsers();
@@ -227,7 +228,7 @@
   async function cambiarRol(userId, role) {
     const { error } = await client.from("profiles").update({ role }).eq("id", userId);
     if (error) {
-      alert("No se pudo cambiar el rol: " + error.message);
+      showAlert("No se pudo cambiar el rol: " + error.message, { type: "error" });
       loadUsers();
       return;
     }
@@ -275,10 +276,10 @@
     btnEl.textContent = original;
 
     if (error) {
-      alert("No se pudo enviar (" + (error.message || "función no disponible todavía") + ")");
+      showAlert("No se pudo enviar (" + (error.message || "función no disponible todavía") + ")", { type: "error" });
       return;
     }
-    alert(`Prueba enviada. Enviados: ${data.sent}, fallidos: ${data.failed}, suscripciones vencidas eliminadas: ${data.deleted}`);
+    showAlert(`Enviados: ${data.sent}, fallidos: ${data.failed}, suscripciones vencidas eliminadas: ${data.deleted}`, { title: "Prueba enviada", type: "success" });
   }
 
   checkAdminAccess();
