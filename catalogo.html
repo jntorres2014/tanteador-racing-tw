@@ -141,6 +141,7 @@
     <div class="tab-row">
       <button class="tab-btn active" id="tabBtnClubs" onclick="switchTab('clubs')">Clubes</button>
       <button class="tab-btn" id="tabBtnPlayers" onclick="switchTab('players')">Jugadores</button>
+      <button class="tab-btn" id="tabBtnRanking" onclick="switchTab('ranking')">Ranking</button>
     </div>
 
     <div id="clubsTab">
@@ -177,6 +178,50 @@
       <input type="text" id="playerSearchBox" class="search-box" placeholder="Buscar jugador..." oninput="renderPlayers()" />
       <div id="playersSection"><div class="empty">Cargando...</div></div>
     </div>
+
+    <div id="rankingTab" class="hidden-tab">
+      <div class="form-card">
+        <h3>Regla nueva (cuánto vale cada cosa)</h3>
+        <div class="form-row">
+          <select id="newRuleSeason"></select>
+          <input type="text" id="newRuleEventType" placeholder="Tipo de evento (ej: match_win)" value="match_win" />
+        </div>
+        <div class="form-row">
+          <input type="number" id="newRulePoints" placeholder="Puntos" />
+          <select id="newRuleCategory"><option value="">Cualquier categoría</option></select>
+          <select id="newRuleTournament"><option value="">Cualquier torneo</option></select>
+        </div>
+        <button class="btn-primary" onclick="crearRegla()">+ Agregar regla</button>
+        <div class="form-msg" id="ruleFormMsg"></div>
+      </div>
+      <div id="rulesSection"><div class="empty">Cargando reglas...</div></div>
+
+      <div class="form-card">
+        <h3>Cargar puntos a mano</h3>
+        <div class="form-row">
+          <select id="manualPlayer"></select>
+        </div>
+        <div class="form-row">
+          <select id="manualSeason"></select>
+          <select id="manualCategory"><option value="">Elegí categoría</option></select>
+        </div>
+        <div class="form-row">
+          <input type="number" id="manualPoints" placeholder="Puntos (puede ser negativo, para corregir)" />
+          <input type="text" id="manualDescription" placeholder="Motivo (ej: Subcampeón torneo Apertura)" />
+        </div>
+        <button class="btn-primary" onclick="cargarPuntosManual()">+ Cargar puntos</button>
+        <div class="form-msg" id="manualFormMsg"></div>
+      </div>
+
+      <div class="form-card">
+        <h3>Ver ranking</h3>
+        <div class="form-row">
+          <select id="viewRankingSeason" onchange="renderRankingTotals()"></select>
+          <select id="viewRankingCategory" onchange="renderRankingTotals()"><option value="">Todas las categorías</option></select>
+        </div>
+      </div>
+      <div id="rankingTotalsSection"><div class="empty">Elegí una temporada.</div></div>
+    </div>
   </div>
 </div>
 
@@ -201,8 +246,10 @@
   function switchTab(tab) {
     document.getElementById("tabBtnClubs").classList.toggle("active", tab === "clubs");
     document.getElementById("tabBtnPlayers").classList.toggle("active", tab === "players");
+    document.getElementById("tabBtnRanking").classList.toggle("active", tab === "ranking");
     document.getElementById("clubsTab").classList.toggle("hidden-tab", tab !== "clubs");
     document.getElementById("playersTab").classList.toggle("hidden-tab", tab !== "players");
+    document.getElementById("rankingTab").classList.toggle("hidden-tab", tab !== "ranking");
   }
 
   // ------------------------------------------------------------
@@ -230,6 +277,8 @@
       contentEl.classList.remove("hidden");
       loadClubs();
       loadPlayers();
+      loadSeasonsAndCategories();
+      loadRules();
     } else {
       blockedEl.textContent = msg;
       blockedEl.classList.remove("hidden");
@@ -348,6 +397,7 @@
     }
     allPlayers = data || [];
     renderPlayers();
+    fillManualPlayerSelect();
   }
 
   function renderPlayers() {
@@ -470,6 +520,212 @@
     msgEl.textContent = "Jugador agregado ✓";
     msgEl.className = "form-msg ok";
     await loadPlayers();
+  }
+
+  // ------------------------------------------------------------
+  // RANKING (temporadas, categorías, reglas, puntos manuales, ver)
+  // ------------------------------------------------------------
+  let allSeasons = [];
+  let allCategories = [];
+  let allRules = [];
+
+  async function loadSeasonsAndCategories() {
+    const [{ data: seasons, error: sErr }, { data: categories, error: cErr }] = await Promise.all([
+      client.from("seasons").select("*").order("year", { ascending: false }),
+      client.from("categories").select("*").order("display_order", { ascending: true }),
+    ]);
+    if (!sErr) allSeasons = seasons || [];
+    if (!cErr) allCategories = categories || [];
+    fillSeasonSelects();
+    fillCategorySelects();
+  }
+
+  function fillSeasonSelects() {
+    const opts = allSeasons.map((s) => `<option value="${s.id}">${s.year}</option>`).join("");
+    ["newRuleSeason", "manualSeason", "viewRankingSeason"].forEach((id) => {
+      const sel = document.getElementById(id);
+      const current = sel.value;
+      sel.innerHTML = opts;
+      if (current) sel.value = current;
+    });
+  }
+
+  function fillCategorySelects() {
+    const opts = allCategories.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("");
+    document.getElementById("newRuleCategory").innerHTML = '<option value="">Cualquier categoría</option>' + opts;
+    document.getElementById("manualCategory").innerHTML = '<option value="">Elegí categoría</option>' + opts;
+    document.getElementById("viewRankingCategory").innerHTML = '<option value="">Todas las categorías</option>' + opts;
+
+    const tourSel = document.getElementById("newRuleTournament");
+    if (tourSel.options.length <= 1) loadTournamentOptions();
+  }
+
+  async function loadTournamentOptions() {
+    const { data, error } = await client.from("tournaments").select("id, name").order("created_at", { ascending: false });
+    if (error) return;
+    const tourSel = document.getElementById("newRuleTournament");
+    const opts = (data || []).map((t) => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join("");
+    tourSel.innerHTML = '<option value="">Cualquier torneo</option>' + opts;
+  }
+
+  function fillManualPlayerSelect() {
+    const sel = document.getElementById("manualPlayer");
+    const opts = allPlayers.map((p) => `<option value="${p.id}">${escapeHtml(p.display_name)}</option>`).join("");
+    sel.innerHTML = opts || '<option value="">(no hay jugadores todavía)</option>';
+  }
+
+  async function loadRules() {
+    const { data, error } = await client
+      .from("ranking_rules")
+      .select("*, seasons(year), categories(name), tournaments(name)")
+      .order("created_at", { ascending: false });
+    if (error) {
+      document.getElementById("rulesSection").innerHTML = `<div class="empty">No se pudieron cargar las reglas: ${escapeHtml(error.message)}</div>`;
+      return;
+    }
+    allRules = data || [];
+    renderRules();
+  }
+
+  function renderRules() {
+    const el = document.getElementById("rulesSection");
+    if (allRules.length === 0) {
+      el.innerHTML = '<div class="empty">Todavía no hay reglas cargadas — sin una regla, los puntos no se cargan solos.</div>';
+      return;
+    }
+    el.innerHTML = allRules.map((r) => {
+      const scope = [
+        r.seasons ? `Temporada ${r.seasons.year}` : null,
+        r.categories ? `Categoría ${r.categories.name}` : "cualquier categoría",
+        r.tournaments ? r.tournaments.name : "cualquier torneo",
+      ].filter(Boolean).join(" · ");
+      return `
+        <div class="item-card">
+          <div class="item-top">
+            <div>
+              <div class="item-name">${escapeHtml(r.event_type)}: ${r.points} pts${!r.active ? '<span class="badge-inactive">Inactiva</span>' : ""}</div>
+              <div class="item-sub">${escapeHtml(scope)}</div>
+            </div>
+            <div class="item-actions">
+              <button class="btn-edit" onclick="toggleRegla('${r.id}', ${!r.active})">${r.active ? "Desactivar" : "Activar"}</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  async function toggleRegla(id, active) {
+    const { error } = await client.from("ranking_rules").update({ active }).eq("id", id);
+    if (error) { alert("No se pudo actualizar: " + error.message); return; }
+    await loadRules();
+  }
+
+  async function crearRegla() {
+    const seasonId = document.getElementById("newRuleSeason").value;
+    const eventType = document.getElementById("newRuleEventType").value.trim();
+    const pointsRaw = document.getElementById("newRulePoints").value;
+    const categoryId = document.getElementById("newRuleCategory").value || null;
+    const tournamentId = document.getElementById("newRuleTournament").value || null;
+    const msgEl = document.getElementById("ruleFormMsg");
+
+    if (!seasonId || !eventType || pointsRaw === "") {
+      msgEl.textContent = "Faltan datos: temporada, tipo de evento y puntos son obligatorios.";
+      msgEl.className = "form-msg err";
+      return;
+    }
+
+    const { error } = await client.from("ranking_rules").insert({
+      season_id: seasonId,
+      event_type: eventType,
+      points: parseInt(pointsRaw, 10),
+      category_id: categoryId,
+      tournament_id: tournamentId,
+      active: true,
+    });
+
+    if (error) {
+      msgEl.textContent = "No se pudo crear: " + error.message;
+      msgEl.className = "form-msg err";
+      return;
+    }
+    document.getElementById("newRulePoints").value = "";
+    msgEl.textContent = "Regla agregada ✓";
+    msgEl.className = "form-msg ok";
+    await loadRules();
+  }
+
+  async function cargarPuntosManual() {
+    const playerId = document.getElementById("manualPlayer").value;
+    const seasonId = document.getElementById("manualSeason").value;
+    const categoryId = document.getElementById("manualCategory").value;
+    const pointsRaw = document.getElementById("manualPoints").value;
+    const description = document.getElementById("manualDescription").value.trim();
+    const msgEl = document.getElementById("manualFormMsg");
+
+    if (!playerId || !seasonId || !categoryId || pointsRaw === "") {
+      msgEl.textContent = "Faltan datos: jugador, temporada, categoría y puntos son obligatorios.";
+      msgEl.className = "form-msg err";
+      return;
+    }
+
+    const sourceKey = "manual:" + crypto.randomUUID();
+    const { error } = await client.from("ranking_events").insert({
+      player_id: playerId,
+      season_id: seasonId,
+      category_id: categoryId,
+      event_type: "manual",
+      points: parseInt(pointsRaw, 10),
+      description: description || null,
+      source_key: sourceKey,
+    });
+
+    if (error) {
+      msgEl.textContent = "No se pudo cargar: " + error.message;
+      msgEl.className = "form-msg err";
+      return;
+    }
+    document.getElementById("manualPoints").value = "";
+    document.getElementById("manualDescription").value = "";
+    msgEl.textContent = "Puntos cargados ✓";
+    msgEl.className = "form-msg ok";
+    renderRankingTotals();
+  }
+
+  async function renderRankingTotals() {
+    const seasonId = document.getElementById("viewRankingSeason").value;
+    const categoryId = document.getElementById("viewRankingCategory").value;
+    const el = document.getElementById("rankingTotalsSection");
+
+    if (!seasonId) {
+      el.innerHTML = '<div class="empty">Elegí una temporada.</div>';
+      return;
+    }
+
+    let query = client.from("ranking_totals").select("*").eq("season_id", seasonId);
+    if (categoryId) query = query.eq("category_id", categoryId);
+    const { data, error } = await query.order("total_points", { ascending: false });
+
+    if (error) {
+      el.innerHTML = `<div class="empty">No se pudo cargar: ${escapeHtml(error.message)}</div>`;
+      return;
+    }
+    if (!data || data.length === 0) {
+      el.innerHTML = '<div class="empty">Todavía no hay puntos cargados para esa temporada.</div>';
+      return;
+    }
+
+    el.innerHTML = data.map((row, i) => `
+      <div class="item-card">
+        <div class="item-top">
+          <div>
+            <div class="item-name">${i + 1}. ${escapeHtml(row.player_display_name)}</div>
+            <div class="item-sub">Categoría ${escapeHtml(row.category_name)}</div>
+          </div>
+          <div class="item-name">${row.total_points} pts</div>
+        </div>
+      </div>
+    `).join("");
   }
 
   checkAdminAccess();
