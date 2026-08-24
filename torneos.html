@@ -58,6 +58,12 @@
     background: transparent; color: #ff4b4b; font-weight: 700; font-size: 0.85rem; cursor: pointer;
   }
   .delete-btn:hover { background: rgba(255,75,75,0.1); }
+  .manage-btn {
+    margin-top: 8px; width: 100%; text-align: center; text-decoration: none; display: block;
+    border: 2px solid #3fa9f5; border-radius: 10px; padding: 10px; box-sizing: border-box;
+    background: transparent; color: #3fa9f5; font-weight: 700; font-size: 0.85rem;
+  }
+  .manage-btn:hover { background: rgba(63,169,245,0.1); }
 
   h3.group-title {
     font-size: 0.82rem; text-transform: uppercase; letter-spacing: 1.5px;
@@ -430,6 +436,9 @@
         </div>
         ${tournament.status === "draft"
           ? `<button class="publish-btn" onclick="publicarTorneo('${tournament.id}')">Publicar torneo</button>`
+          : ""}
+        ${isAdminHeader
+          ? `<a class="manage-btn" href="nuevo-torneo.html?t=${tournament.id}">✏️ Agregar / editar partidos</a>`
           : ""}
         ${isAdminHeader
           ? `<button class="delete-btn" data-name="${escapeHtml(tournament.name)}" onclick="borrarTorneo('${tournament.id}', this)">🗑️ Borrar torneo</button>`

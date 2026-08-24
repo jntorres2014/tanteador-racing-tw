@@ -40,6 +40,47 @@ async function authLogin() {
   });
 }
 
+// ------------------------------------------------------------
+// Login con email + contraseña — el de Google necesita llegar a
+// los servidores de Google por internet, asi que en modo local (ver
+// supabase-config.js / MODO-LOCAL.md) no sirve. Supabase Auth local
+// SI soporta email+contraseña sin salir a internet, asi que es la
+// puerta de entrada para el dia sin conexion. En modo nube no se
+// muestra: ahi se sigue usando Google como siempre.
+// ------------------------------------------------------------
+async function authLoginLocal(email, password) {
+  const { error } = await client.auth.signInWithPassword({ email, password });
+  if (error) throw new Error(error.message);
+}
+
+async function authSignupLocal(email, password) {
+  const { error } = await client.auth.signUp({ email, password });
+  if (error) throw new Error(error.message);
+}
+
+async function authSubmitLocal(modo) {
+  const emailEl = document.getElementById("authLocalEmail");
+  const passEl = document.getElementById("authLocalPass");
+  const msgEl = document.getElementById("authLocalMsg");
+  const email = emailEl ? emailEl.value.trim() : "";
+  const password = passEl ? passEl.value : "";
+  if (msgEl) msgEl.textContent = "";
+  if (!email || !password) {
+    if (msgEl) msgEl.textContent = "Completá email y contraseña.";
+    return;
+  }
+  try {
+    if (modo === "signup") {
+      await authSignupLocal(email, password);
+      if (msgEl) msgEl.textContent = "Cuenta creada. Ya podés ingresar (queda pendiente hasta que un admin la active).";
+    } else {
+      await authLoginLocal(email, password);
+    }
+  } catch (err) {
+    if (msgEl) msgEl.textContent = err.message || "No se pudo completar.";
+  }
+}
+
 async function authLogout() {
   await client.auth.signOut();
   window.location.reload();
@@ -47,6 +88,25 @@ async function authLogout() {
 
 function authBarHtml(session, profile) {
   if (!session) {
+    if (typeof MODO_SERVIDOR !== "undefined" && MODO_SERVIDOR === "local") {
+      return `
+        <div class="auth-bar auth-bar-out" style="flex-direction:column; align-items:stretch; gap:8px;">
+          <div style="font-size:0.76rem; color:#8a94a6; text-align:center;">
+            Modo local: el login con Google no anda sin internet — entrá con email y contraseña.
+          </div>
+          <input id="authLocalEmail" type="email" placeholder="Email" autocomplete="username"
+            style="width:100%; padding:9px 10px; border-radius:8px; border:none; background:#222b3a; color:#fff; font-size:0.88rem;" />
+          <input id="authLocalPass" type="password" placeholder="Contraseña" autocomplete="current-password"
+            style="width:100%; padding:9px 10px; border-radius:8px; border:none; background:#222b3a; color:#fff; font-size:0.88rem;" />
+          <div style="display:flex; gap:8px;">
+            <button onclick="authSubmitLocal('login')"
+              style="flex:1; padding:9px; border:none; border-radius:8px; background:#3fa9f5; color:#fff; font-weight:700; cursor:pointer;">Ingresar</button>
+            <button onclick="authSubmitLocal('signup')"
+              style="flex:1; padding:9px; border:none; border-radius:8px; background:#3a4256; color:#fff; font-weight:700; cursor:pointer;">Crear cuenta</button>
+          </div>
+          <div id="authLocalMsg" style="font-size:0.76rem; color:#ff9d4b; text-align:center;"></div>
+        </div>`;
+    }
     return `
       <div class="auth-bar auth-bar-out">
         <button class="auth-btn-google" onclick="authLogin()">

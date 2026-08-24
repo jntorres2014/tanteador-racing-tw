@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#0b1320" />
+<title>Modo servidor — Racing Club TW</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; min-height: 100vh;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #0b1320; color: #fff;
+  }
+  body { display: flex; justify-content: center; padding: 20px; }
+  .wrap { width: 100%; max-width: 480px; }
+
+  h1 { font-size: 1.05rem; text-transform: uppercase; letter-spacing: 1.5px; margin: 0 0 4px; }
+  .sub { color: #8a94a6; font-size: 0.85rem; margin: 0 0 20px; }
+
+  .card {
+    background: #1b2433; border-radius: 14px; padding: 16px;
+    margin-bottom: 14px; border: 2px solid #3a4256;
+  }
+  .card.active { border-color: #3fa9f5; }
+
+  .modo-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .modo-name { font-weight: 700; font-size: 0.95rem; }
+  .modo-badge {
+    font-size: 0.68rem; font-weight: 700; padding: 3px 8px; border-radius: 10px;
+    background: rgba(63,169,245,0.15); color: #3fa9f5;
+  }
+  .modo-desc { color: #8a94a6; font-size: 0.82rem; margin: 6px 0 12px; }
+
+  label { display: block; font-size: 0.78rem; color: #8a94a6; margin-bottom: 4px; }
+  input[type="text"], input[type="password"] {
+    width: 100%; padding: 10px 12px; border-radius: 8px; border: none;
+    font-size: 0.9rem; background: #222b3a; color: #fff; margin-bottom: 10px;
+  }
+
+  button {
+    width: 100%; border: none; border-radius: 10px; padding: 12px; font-weight: 700;
+    font-size: 0.92rem; cursor: pointer;
+  }
+  .btn-primary { background: #ffcc00; color: #0b1320; }
+  .btn-secondary { background: #3a4256; color: #fff; }
+
+  .msg { font-size: 0.8rem; margin-top: 10px; text-align: center; }
+  .msg.ok { color: #3fd976; }
+  .msg.err { color: #ff9d4b; }
+
+  .back { display: block; text-align: center; margin-top: 18px; color: #8a94a6; font-size: 0.82rem; text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Modo servidor</h1>
+  <p class="sub">Para usar el sistema sin internet en el club, seguí primero la guía MODO-LOCAL.md — acá solo se elige a qué base te conectás.</p>
+
+  <div class="card" id="cardActual">
+    <div class="modo-row">
+      <div class="modo-name">Estado actual</div>
+      <div class="modo-badge" id="badgeActual">—</div>
+    </div>
+    <div class="modo-desc" id="descActual">Cargando...</div>
+  </div>
+
+  <div class="card">
+    <div class="modo-name" style="margin-bottom:8px;">☁️ Usar la nube (normal)</div>
+    <div class="modo-desc">Lo de siempre. Necesita internet, pero tiene todo: notificaciones push, "En vivo (público)" visible desde cualquier lado, login con Google.</div>
+    <button class="btn-primary" onclick="usarNube()">Volver a la nube</button>
+  </div>
+
+  <div class="card">
+    <div class="modo-name" style="margin-bottom:8px;">🔌 Usar un servidor local</div>
+    <div class="modo-desc">Para el día que el club se queda sin internet. Necesita que alguien haya levantado una copia local con "supabase start" en una notebook (ver MODO-LOCAL.md) y que este celular/notebook esté conectado a esa misma red wifi.</div>
+    <label>URL local (la que imprime "supabase status", o la IP de la notebook)</label>
+    <input type="text" id="fUrl" placeholder="http://192.168.1.50:54321" />
+    <label>Anon key local (también la imprime "supabase status")</label>
+    <input type="password" id="fKey" placeholder="eyJ..." />
+    <button class="btn-secondary" onclick="usarLocal()">Usar este servidor local</button>
+  </div>
+
+  <div id="msg" class="msg"></div>
+
+  <a href="index.html" class="back">← Volver</a>
+</div>
+
+<script>
+  function leerConfig() {
+    try {
+      const raw = localStorage.getItem("configServidor");
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+
+  function mostrarEstado() {
+    const cfg = leerConfig();
+    const badge = document.getElementById("badgeActual");
+    const desc = document.getElementById("descActual");
+    const card = document.getElementById("cardActual");
+    if (cfg && cfg.modo === "local" && cfg.url) {
+      badge.textContent = "LOCAL";
+      desc.textContent = "Conectado a " + cfg.url + " — modo sin internet.";
+      card.classList.add("active");
+    } else {
+      badge.textContent = "NUBE";
+      desc.textContent = "Conectado a la base en la nube (la de siempre).";
+      card.classList.remove("active");
+    }
+  }
+
+  function mostrarMsg(text, tipo) {
+    const el = document.getElementById("msg");
+    el.textContent = text;
+    el.className = "msg " + (tipo || "");
+  }
+
+  function usarNube() {
+    localStorage.removeItem("configServidor");
+    mostrarMsg("Listo, volviste a la nube. Recargando...", "ok");
+    setTimeout(() => window.location.href = "index.html", 900);
+  }
+
+  function usarLocal() {
+    const url = document.getElementById("fUrl").value.trim();
+    const anonKey = document.getElementById("fKey").value.trim();
+    if (!url || !anonKey) {
+      mostrarMsg("Completá la URL y la anon key (las da \"supabase status\" en la notebook).", "err");
+      return;
+    }
+    if (!/^https?:\/\//i.test(url)) {
+      mostrarMsg("La URL tiene que empezar con http:// o https://", "err");
+      return;
+    }
+    localStorage.setItem("configServidor", JSON.stringify({ modo: "local", url, anonKey }));
+    mostrarMsg("Listo, conectado en modo local. Recargando...", "ok");
+    setTimeout(() => window.location.href = "index.html", 900);
+  }
+
+  mostrarEstado();
+</script>
+</body>
+</html>
