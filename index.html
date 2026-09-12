@@ -81,7 +81,7 @@
   .modal-box h3 { margin: 0 0 16px; font-size: 1.05rem; text-align: center; }
   .modal-field { margin-bottom: 12px; }
   .modal-field label { display: block; font-size: 0.78rem; color: #8a94a6; margin-bottom: 4px; }
-  .modal-field input {
+  .modal-field input, .modal-field select {
     width: 100%; padding: 10px 12px; border-radius: 8px; border: none;
     font-size: 0.95rem; background: #222b3a; color: #fff;
   }
@@ -188,9 +188,19 @@
         <input type="text" id="modalTeamB" placeholder="Visitante" />
       </div>
     </div>
-    <div class="modal-field">
-      <label>Tantos a jugar</label>
-      <input type="number" id="modalMaxPoints" value="30" min="1" max="99" inputmode="numeric" />
+    <div class="modal-field split">
+      <div>
+        <label>Tantos a jugar</label>
+        <input type="number" id="modalMaxPoints" value="30" min="1" max="99" inputmode="numeric" />
+      </div>
+      <div>
+        <label>Formato</label>
+        <select id="modalFormato">
+          <option value="1">Un solo set</option>
+          <option value="2">Mejor de 3</option>
+          <option value="3">Mejor de 5</option>
+        </select>
+      </div>
     </div>
     <div class="modal-hint">"Solo probar" no pide cuenta y no se guarda en el sistema: queda únicamente en este dispositivo/navegador.</div>
     <div class="modal-actions stacked">
@@ -227,6 +237,7 @@
     document.getElementById("modalTeamA").value = "";
     document.getElementById("modalTeamB").value = "";
     document.getElementById("modalMaxPoints").value = 30;
+    document.getElementById("modalFormato").value = "1";
     document.getElementById("newMatchModal").classList.add("open");
     setTimeout(() => document.getElementById("modalLabel").focus(), 50);
   }
@@ -240,6 +251,7 @@
     const teamA = document.getElementById("modalTeamA").value.trim() || "Local";
     const teamB = document.getElementById("modalTeamB").value.trim() || "Visitante";
     const maxPoints = Math.max(1, parseInt(document.getElementById("modalMaxPoints").value) || 30);
+    const setsToWin = parseInt(document.getElementById("modalFormato").value) || 1;
 
     if (!guardarEnSistema) {
       // Modo prueba: no toca la base de datos ni pide login. El
@@ -253,6 +265,7 @@
         max_points: maxPoints, match_status: "playing",
         timer_accumulated: 0, timer_running_since: null,
         is_live: false, youtube_url: "", is_finished: false,
+        sets_to_win: setsToWin, sets_a: 0, sets_b: 0, current_set: 1, set_history: [],
         updated_at: new Date().toISOString(),
       };
       localStorage.setItem("localMatch:" + id, JSON.stringify(state));
@@ -271,6 +284,7 @@
     const id = genId();
     const { error } = await client.from("matches").insert({
       id, label, team_a_name: teamA, team_b_name: teamB, max_points: maxPoints,
+      sets_to_win: setsToWin,
       referee_user_id: sessionData.session.user.id,
     });
     if (error) {
@@ -314,7 +328,7 @@
           <div class="local-badge">🧪 Prueba local</div>
         </div>
         <div class="match-score">
-          ${escapeHtml(m.team_a_name)} ${m.score_a} — ${m.score_b} ${escapeHtml(m.team_b_name)}
+          ${escapeHtml(m.team_a_name)} ${(m.sets_to_win || 1) > 1 ? (m.sets_a || 0) : m.score_a} — ${(m.sets_to_win || 1) > 1 ? (m.sets_b || 0) : m.score_b} ${escapeHtml(m.team_b_name)}
           ${m.is_finished ? " · Finalizado" : ""}
         </div>
         <div class="match-links">
@@ -344,7 +358,7 @@
           <div class="match-label">${escapeHtml(m.label)}</div>
           ${m.is_live ? '<div class="live-tag">🔴 EN VIVO</div>' : ""}
         </div>
-        <div class="match-score">${escapeHtml(m.team_a_name)} ${m.score_a} — ${m.score_b} ${escapeHtml(m.team_b_name)}</div>
+        <div class="match-score">${escapeHtml(m.team_a_name)} ${(m.sets_to_win || 1) > 1 ? (m.sets_a || 0) : m.score_a} — ${(m.sets_to_win || 1) > 1 ? (m.sets_b || 0) : m.score_b} ${escapeHtml(m.team_b_name)}</div>
         <div class="match-links">
           <a class="link-control" href="control.html?m=${m.id}">Control</a>
           <a class="link-display" href="display.html?m=${m.id}" target="_blank">Display (OBS)</a>

@@ -31,6 +31,7 @@
   .match-score { font-size: 1.1rem; font-weight: 700; }
   .winner-a { color: #ff4b4b; }
   .winner-b { color: #3fa9f5; }
+  .match-sets-detail { font-size: 0.72rem; color: #8a94a6; margin-top: 4px; }
 
   .empty { text-align: center; color: #8a94a6; padding: 30px; font-size: 0.9rem; }
 </style>
@@ -68,8 +69,14 @@
       return;
     }
     el.innerHTML = matches.map((m) => {
-      const aWins = m.score_a > m.score_b;
-      const bWins = m.score_b > m.score_a;
+      const usesSets = (m.sets_to_win || 1) > 1;
+      const mainA = usesSets ? (m.sets_a || 0) : m.score_a;
+      const mainB = usesSets ? (m.sets_b || 0) : m.score_b;
+      const aWins = mainA > mainB;
+      const bWins = mainB > mainA;
+      const setsDetail = usesSets && Array.isArray(m.set_history) && m.set_history.length
+        ? `<div class="match-sets-detail">Sets: ${m.set_history.map((h) => `${h.score_a}-${h.score_b}`).join(", ")}</div>`
+        : "";
       return `
         <div class="match-card">
           <div class="match-top">
@@ -77,10 +84,11 @@
             <div class="match-date">${formatDate(m.updated_at)}</div>
           </div>
           <div class="match-score">
-            <span class="${aWins ? "winner-a" : ""}">${escapeHtml(m.team_a_name)} ${m.score_a}</span>
+            <span class="${aWins ? "winner-a" : ""}">${escapeHtml(m.team_a_name)} ${mainA}</span>
             &nbsp;—&nbsp;
-            <span class="${bWins ? "winner-b" : ""}">${m.score_b} ${escapeHtml(m.team_b_name)}</span>
+            <span class="${bWins ? "winner-b" : ""}">${mainB} ${escapeHtml(m.team_b_name)}</span>
           </div>
+          ${setsDetail}
         </div>
       `;
     }).join("");

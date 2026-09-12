@@ -136,6 +136,17 @@
       <div class="field"><label>Hora de inicio</label><input id="fHoraInicio" type="time" value="14:00" /></div>
       <div class="field"><label>Cancha (si el Excel no la trae, se usa esta para todos los partidos)</label><input id="fCancha" placeholder="Cancha Racing" /></div>
     </div>
+    <div class="row">
+      <div class="field">
+        <label>Formato de los partidos</label>
+        <select id="fFormato">
+          <option value="1">Un solo set</option>
+          <option value="2">Mejor de 3</option>
+          <option value="3">Mejor de 5</option>
+        </select>
+      </div>
+    </div>
+    <div class="helptext">Se aplica a todos los partidos de este fixture. Si este torneo mezcla categorías con formatos distintos, importá esta jornada por partes (o avisá y lo armamos por categoría).</div>
   </div>
 
   <div class="card">
@@ -651,36 +662,50 @@
     const statusEl = document.getElementById("statusMsg");
     statusEl.innerHTML = '<div class="status-msg ok">Importando…</div>';
 
-    try {
-      const seasonYear = parseInt(document.getElementById("fAnio").value);
-      const { data: season } = await client.from("seasons")
-        .upsert({ year: seasonYear }, { onConflict: "year" }).select().single();
+    // Tira un error con el mensaje real de Supabase (RLS, columna
+    // faltante, constraint, lo que sea) en vez de dejar que el codigo
+    // siga con "data: null" y explote despues con un generico
+    // "Cannot read properties of null" que no dice nada util.
+    function checkErr(error, label) {
+      if (error) throw new Error(`${label}: ${error.message || JSON.stringify(error)}`);
+    }
 
-      const { data: tournament } = await client.from("tournaments").insert({
+    try {
+      const setsToWin = parseInt(document.getElementById("fFormato").value) || 1;
+      const seasonYear = parseInt(document.getElementById("fAnio").value);
+      const { data: season, error: seasonErr } = await client.from("seasons")
+        .upsert({ year: seasonYear }, { onConflict: "year" }).select().single();
+      checkErr(seasonErr, "No se pudo crear/buscar la temporada");
+
+      const { data: tournament, error: tournamentErr } = await client.from("tournaments").insert({
         season_id: season.id,
         name: document.getElementById("fTorneoNombre").value || "Torneo sin nombre",
         venue: document.getElementById("fSede").value || null,
         status: "draft",
       }).select().single();
+      checkErr(tournamentErr, "No se pudo crear el torneo");
 
       const fecha = document.getElementById("fFecha").value || null;
       let tournamentDay = null;
       if (fecha) {
-        const { data: day } = await client.from("tournament_days")
+        const { data: day, error: dayErr } = await client.from("tournament_days")
           .insert({ tournament_id: tournament.id, play_date: fecha, default_start_time: document.getElementById("fHoraInicio").value || null })
           .select().single();
+        checkErr(dayErr, "No se pudo crear la jornada");
         tournamentDay = day;
       }
 
       const canchaNombre = document.getElementById("fCancha").value || "Cancha principal";
-      const { data: court } = await client.from("courts")
+      const { data: court, error: courtErr } = await client.from("courts")
         .insert({ tournament_id: tournament.id, name: canchaNombre }).select().single();
+      checkErr(courtErr, "No se pudo crear la cancha");
 
       // categorias: crear las que no existan
       const catIds = {};
       for (const catName of importPlan.summary.categorias) {
-        const { data: cat } = await client.from("categories")
+        const { data: cat, error: catErr } = await client.from("categories")
           .upsert({ name: catName }, { onConflict: "name" }).select().single();
+        checkErr(catErr, `No se pudo crear/buscar la categoría "${catName}"`);
         catIds[ImportarLogic.normalizeKey(catName)] = cat.id;
       }
 
@@ -702,9 +727,10 @@
         // apellido aunque aparezca en varios partidos de este archivo.
         if (newPlayerCache[key]) return newPlayerCache[key];
         const nombre = ImportarLogic.titleCase(apellidoInfo.apellidoRaw);
-        const { data: newPlayer } = await client.from("players").insert({
+        const { data: newPlayer, error: playerErr } = await client.from("players").insert({
           last_name: nombre, display_name: nombre,
         }).select().single();
+        checkErr(playerErr, `No se pudo crear el jugador "${nombre}"`);
         newPlayerCache[key] = newPlayer.id;
         return newPlayer.id;
       }
@@ -715,11 +741,12 @@
         const playerIds = [];
         for (const ap of apellidos) playerIds.push(await resolvePlayerId(ap, categoriaRaw));
         const displayName = apellidos.map(a => ImportarLogic.titleCase(a.apellidoRaw)).join(" / ");
-        const { data: pair } = await client.from("tournament_pairs").insert({
+        const { data: pair, error: pairErr } = await client.from("tournament_pairs").insert({
           tournament_id: tournament.id, category_id: categoryId,
           player_1_id: playerIds[0] || null, player_2_id: playerIds[1] || null,
           display_name: displayName, raw_display_name: side.raw,
         }).select().single();
+        checkErr(pairErr, `No se pudo crear la pareja "${displayName}"`);
         return { pairId: pair.id, isReference: null };
       }
 
@@ -734,7 +761,7 @@
         const teamAName = resolvedA.isReference ? resolvedA.isReference.raw : (m.sideA.kind === "pair" || m.sideA.kind === "unresolved" ? m.sideA.raw : "");
         const teamBName = resolvedB.isReference ? resolvedB.isReference.raw : (m.sideB.kind === "pair" || m.sideB.kind === "unresolved" ? m.sideB.raw : "");
 
-        const { data: match } = await client.from("matches").insert({
+        const { data: match, error: matchErr } = await client.from("matches").insert({
           id: matchId, label: `Partido ${m.matchNumber}`,
           team_a_name: teamAName || "Por definir", team_b_name: teamBName || "Por definir",
           tournament_id: tournament.id, tournament_day_id: tournamentDay ? tournamentDay.id : null,
@@ -742,7 +769,9 @@
           match_number: m.matchNumber, sequence_order: m.sequenceOrder,
           pair_a_id: resolvedA.pairId, pair_b_id: resolvedB.pairId,
           scheduled_time: null,
+          sets_to_win: setsToWin,
         }).select().single();
+        checkErr(matchErr, `No se pudo crear el Partido ${m.matchNumber}`);
 
         insertedByNumber[m.matchNumber] = { match, sideARef: resolvedA.isReference, sideBRef: resolvedB.isReference };
       }
@@ -753,11 +782,12 @@
           if (!ref) continue;
           const source = insertedByNumber[ref.refMatchNumber];
           if (!source) continue;
-          await client.from("match_slots").insert({
+          const { error: slotErr } = await client.from("match_slots").insert({
             match_id: info.match.id, side,
             source_type: ref.refType, source_match_id: source.match.id,
             raw_source_text: ref.raw,
           });
+          checkErr(slotErr, `No se pudo crear la referencia de cruce del Partido ${num}`);
         }
       }
 

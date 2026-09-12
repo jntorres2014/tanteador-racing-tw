@@ -256,6 +256,11 @@
         </div>
       </div>
 
+      <div class="card" id="setsCard" style="display:none; margin-bottom:12px;">
+        <h2>Sets</h2>
+        <div id="setsInfo"></div>
+      </div>
+
       <div class="card" style="margin-bottom:12px;">
         <h2>Tiempo</h2>
         <div class="timer-display" id="timerDisplay">00:00</div>
@@ -333,6 +338,7 @@
     max_points: 30, match_status: "playing",
     timer_accumulated: 0, timer_running_since: null,
     is_live: false, youtube_url: "", is_finished: false,
+    sets_to_win: 1, sets_a: 0, sets_b: 0, current_set: 1, set_history: [],
   };
   let currentState = { ...defaultState };
 
@@ -463,6 +469,7 @@
     let scoreA = currentState.score_a;
     let scoreB = currentState.score_b;
     const maxPoints = currentState.max_points || 30;
+    const setsToWin = currentState.sets_to_win || 1;
 
     if (team === "A") scoreA = Math.max(0, scoreA + delta);
     else scoreB = Math.max(0, scoreB + delta);
@@ -473,9 +480,37 @@
     const patch = { score_a: scoreA, score_b: scoreB };
     if (delta > 0) patch.server = team;
 
+    const setWonByA = scoreA >= maxPoints && scoreA > scoreB;
+    const setWonByB = scoreB >= maxPoints && scoreB > scoreA;
     let matchStatus = "playing";
-    if (scoreA >= maxPoints && scoreA > scoreB) matchStatus = "A";
-    else if (scoreB >= maxPoints && scoreB > scoreA) matchStatus = "B";
+
+    if (setsToWin <= 1) {
+      // Comportamiento de siempre: un solo set = partido completo.
+      if (setWonByA) matchStatus = "A";
+      else if (setWonByB) matchStatus = "B";
+    } else if (setWonByA || setWonByB) {
+      // Se ganó este set: se archiva en set_history y suma a sets_a/sets_b.
+      const history = Array.isArray(currentState.set_history) ? currentState.set_history.slice() : [];
+      history.push({ set: currentState.current_set || 1, score_a: scoreA, score_b: scoreB });
+      const setsA = (currentState.sets_a || 0) + (setWonByA ? 1 : 0);
+      const setsB = (currentState.sets_b || 0) + (setWonByB ? 1 : 0);
+
+      patch.set_history = history;
+      patch.sets_a = setsA;
+      patch.sets_b = setsB;
+
+      if (setsA >= setsToWin) matchStatus = "A";
+      else if (setsB >= setsToWin) matchStatus = "B";
+
+      if (matchStatus === "playing") {
+        // Todavía no se definió el partido: arranca el siguiente set,
+        // el marcador vuelve a 0 y se libera el saque.
+        patch.score_a = 0;
+        patch.score_b = 0;
+        patch.server = null;
+        patch.current_set = (currentState.current_set || 1) + 1;
+      }
+    }
     patch.match_status = matchStatus;
 
     // El "arranque" de un partido de torneo (lo que necesita la cola de
@@ -556,9 +591,15 @@
 
   function setMaxPoints(value) {
     const maxPoints = Math.max(1, parseInt(value) || 30);
+    const setsToWin = currentState.sets_to_win || 1;
     let matchStatus = "playing";
-    if (currentState.score_a >= maxPoints && currentState.score_a > currentState.score_b) matchStatus = "A";
-    else if (currentState.score_b >= maxPoints && currentState.score_b > currentState.score_a) matchStatus = "B";
+    // Con formato a sets, un cambio de "tantos a jugar" nunca declara el
+    // partido terminado por su cuenta — eso solo pasa a traves de
+    // changeScore(), que es quien sabe archivar el set y sumar a sets_a/b.
+    if (setsToWin <= 1) {
+      if (currentState.score_a >= maxPoints && currentState.score_a > currentState.score_b) matchStatus = "A";
+      else if (currentState.score_b >= maxPoints && currentState.score_b > currentState.score_a) matchStatus = "B";
+    }
     writeState({ max_points: maxPoints, match_status: matchStatus });
   }
 
@@ -664,6 +705,17 @@
     if (s.match_status === "A") { statusEl.textContent = `Ganó ${s.team_a_name}`; statusEl.style.color = "#ff4b4b"; }
     else if (s.match_status === "B") { statusEl.textContent = `Ganó ${s.team_b_name}`; statusEl.style.color = "#3fa9f5"; }
     else { statusEl.textContent = "En juego"; statusEl.style.color = "#fff"; }
+
+    const setsToWin = s.sets_to_win || 1;
+    const setsCard = document.getElementById("setsCard");
+    if (setsToWin > 1) {
+      setsCard.style.display = "block";
+      const maxSets = setsToWin * 2 - 1;
+      document.getElementById("setsInfo").textContent =
+        `Set ${s.current_set || 1} de ${maxSets} — Sets ganados: ${s.sets_a || 0} - ${s.sets_b || 0}`;
+    } else {
+      setsCard.style.display = "none";
+    }
 
     document.getElementById("timerDisplay").textContent = formatTime(computeTimerSeconds());
     renderLive();

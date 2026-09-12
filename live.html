@@ -100,11 +100,16 @@
 
     list.innerHTML = matches.map((s) => {
       const st = statusText(s);
+      const usesSets = (s.sets_to_win || 1) > 1;
+      const setsLine = usesSets
+        ? `<div style="text-align:center; font-size:0.8rem; color:#bcc4d1; margin-bottom:6px;">Set ${s.current_set || 1} · Sets ${s.sets_a || 0}-${s.sets_b || 0}</div>`
+        : "";
       return `
         <div>
           <div class="live-badge"><span class="live-dot"></span> EN VIVO</div>
           <div class="board">
             <div class="board-label">${escapeHtml(s.label)}</div>
+            ${setsLine}
             <div class="teams">
               <div class="team a">
                 <div class="team-name">${escapeHtml(s.team_a_name)}</div>

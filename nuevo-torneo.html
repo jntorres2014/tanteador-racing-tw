@@ -186,6 +186,14 @@
           <div class="field"><label>N.° de partido</label><input id="fPartidoNumero" type="number" min="1" /></div>
           <div class="field"><label>Cancha</label><select id="fPartidoCancha"></select></div>
           <div class="field"><label>Tantos a jugar</label><input id="fPartidoMax" type="number" value="30" min="1" /></div>
+          <div class="field">
+            <label>Formato</label>
+            <select id="fPartidoFormato">
+              <option value="1">Un solo set</option>
+              <option value="2">Mejor de 3</option>
+              <option value="3">Mejor de 5</option>
+            </select>
+          </div>
         </div>
         <div class="row">
           <div class="side-row" style="flex:1;">
@@ -617,6 +625,7 @@
     const numero = parseInt(document.getElementById("fPartidoNumero").value);
     const courtId = document.getElementById("fPartidoCancha").value;
     const maxPoints = Math.max(1, parseInt(document.getElementById("fPartidoMax").value) || 30);
+    const setsToWin = parseInt(document.getElementById("fPartidoFormato").value) || 1;
     const statusEl = document.getElementById("partidoStatus");
 
     if (!categoryId) { showAlert("Elegí una categoría.", { type: "warn" }); return; }
@@ -643,6 +652,7 @@
         pair_a_id: ladoA.tipo === "pareja" ? ladoA.pairId : null,
         pair_b_id: ladoB.tipo === "pareja" ? ladoB.pairId : null,
         max_points: maxPoints,
+        sets_to_win: setsToWin,
       }).select().single();
       if (error) throw error;
 

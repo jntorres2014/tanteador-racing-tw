@@ -92,6 +92,7 @@
   }
   .match-score { font-size: 0.98rem; color: #eee; margin-bottom: 10px; }
   .match-score .vs { color: #8a94a6; font-weight: 400; font-size: 0.85rem; }
+  .match-sets-sub { font-size: 0.76rem; color: #8a94a6; margin: -6px 0 10px; }
   .match-links { display: flex; gap: 8px; }
   .match-links a {
     flex: 1; text-align: center; text-decoration: none; font-size: 0.8rem; font-weight: 600;
@@ -668,6 +669,12 @@
 
           const bellA = bellButtonHtml(m.pair_a_id, m.team_a_name);
           const bellB = bellButtonHtml(m.pair_b_id, m.team_b_name);
+          const usesSets = (m.sets_to_win || 1) > 1;
+          const mainScoreA = usesSets ? (m.sets_a || 0) : m.score_a;
+          const mainScoreB = usesSets ? (m.sets_b || 0) : m.score_b;
+          const setsSubline = usesSets && !m.is_finished
+            ? `<div class="match-sets-sub">Set ${m.current_set || 1} · último set ${m.score_a}-${m.score_b}</div>`
+            : "";
 
           // Solo puede cargar/corregir resultado un admin, o el arbitro
           // asignado a ESTE partido puntual. A cualquier otra persona
@@ -687,8 +694,9 @@
                 ${statusTag}
               </div>
               <div class="match-score">
-                ${escapeHtml(m.team_a_name)} ${bellA} <b>${m.score_a}</b> <span class="vs">—</span> <b>${m.score_b}</b> ${escapeHtml(m.team_b_name)} ${bellB}
+                ${escapeHtml(m.team_a_name)} ${bellA} <b>${mainScoreA}</b> <span class="vs">—</span> <b>${mainScoreB}</b> ${escapeHtml(m.team_b_name)} ${bellB}
               </div>
+              ${setsSubline}
               ${linksRow}
               ${refereeRow}
             </div>
