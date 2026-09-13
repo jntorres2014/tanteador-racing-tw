@@ -49,6 +49,11 @@
   th { color: #8a94a6; font-weight: 600; }
   .empty-row td { color: #8a94a6; text-align: center; padding: 14px; }
 
+  tr.match-row { cursor: grab; }
+  tr.match-row.dragging { opacity: 0.4; }
+  tr.match-row.drag-over td { border-top: 2px solid #3fa9f5; }
+  .drag-handle { color: #576079; font-size: 1rem; user-select: none; }
+
   .status-msg { font-size: 0.85rem; padding: 10px; border-radius: 8px; margin-top: 10px; }
   .status-msg.ok { background: rgba(63,217,118,0.15); color: #3fd976; }
   .status-msg.err { background: rgba(255,75,75,0.15); color: #ff4b4b; }
@@ -164,8 +169,12 @@
         <h2>Parejas</h2>
         <div class="row">
           <div class="field"><label>Categoría</label><select id="fParejaCategoria"></select></div>
-          <div class="field"><label>Jugador 1 (apellido)</label><input id="fJugador1" list="playersList" placeholder="Pérez" /></div>
-          <div class="field"><label>Jugador 2 (apellido, opcional)</label><input id="fJugador2" list="playersList" placeholder="Gómez" /></div>
+          <div class="field"><label>Jugador 1 — Nombre</label><input id="fJugador1Nombre" placeholder="Martín" /></div>
+          <div class="field"><label>Jugador 1 — Apellido</label><input id="fJugador1Apellido" list="playersList" placeholder="Pérez" /></div>
+        </div>
+        <div class="row">
+          <div class="field"><label>Jugador 2 — Nombre (opcional)</label><input id="fJugador2Nombre" placeholder="Diego" /></div>
+          <div class="field"><label>Jugador 2 — Apellido (opcional)</label><input id="fJugador2Apellido" list="playersList" placeholder="Gómez" /></div>
         </div>
         <div class="row">
           <div class="field"><label>Nombre a mostrar</label><input id="fParejaNombre" placeholder="Se arma solo, pero lo podés editar" /></div>
@@ -177,6 +186,19 @@
           <thead><tr><th>Categoría</th><th>Pareja</th><th></th></tr></thead>
           <tbody id="pairsTableBody"><tr class="empty-row"><td colspan="3">Todavía no hay parejas cargadas.</td></tr></tbody>
         </table>
+      </div>
+
+      <div class="card">
+        <h2>Fixture automático</h2>
+        <div class="helptext" style="margin:0 0 10px;">
+          Arma todos los cruces posibles dentro de cada categoría (todos contra todos), a partir
+          de las parejas ya cargadas arriba. Nunca duplica un cruce que ya exista.
+        </div>
+        <div class="row">
+          <div class="field"><label>Cancha para los partidos generados</label><select id="fFixtureCancha"></select></div>
+          <button class="btn-secondary" onclick="generarFixtureAutomatico(this)">Generar fixture automático</button>
+        </div>
+        <div id="fixtureStatus"></div>
       </div>
 
       <div class="card">
@@ -221,9 +243,10 @@
         </div>
         <button class="btn-secondary" onclick="agregarPartido(this)">+ Agregar partido</button>
         <div id="partidoStatus"></div>
+        <div class="helptext" style="margin:0 0 8px;">Arrastrá de la manija (⠿⠿) para cambiar el orden en que se juegan.</div>
         <table>
-          <thead><tr><th>#</th><th>Cat</th><th>Lado A</th><th></th><th>Lado B</th><th>Cancha</th><th></th></tr></thead>
-          <tbody id="matchesTableBody"><tr class="empty-row"><td colspan="7">Todavía no hay partidos cargados.</td></tr></tbody>
+          <thead><tr><th></th><th>#</th><th>Cat</th><th>Lado A</th><th></th><th>Lado B</th><th>Cancha</th><th></th></tr></thead>
+          <tbody id="matchesTableBody"><tr class="empty-row"><td colspan="8">Todavía no hay partidos cargados.</td></tr></tbody>
         </table>
       </div>
 
@@ -378,10 +401,82 @@
       ? courts.map(c => `<span class="chip">${escapeHtml(c.name)}</span>`).join("")
       : '<span class="chip empty">Sin canchas todavía</span>';
 
-    const sel = document.getElementById("fPartidoCancha");
-    const prev = sel.value;
-    sel.innerHTML = courts.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("");
-    if (prev && courts.some(c => c.id === prev)) sel.value = prev;
+    [document.getElementById("fPartidoCancha"), document.getElementById("fFixtureCancha")].forEach(sel => {
+      const prev = sel.value;
+      sel.innerHTML = courts.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("");
+      if (prev && courts.some(c => c.id === prev)) sel.value = prev;
+    });
+  }
+
+  // ------------------------------------------------------------
+  // Arma todos los cruces posibles dentro de cada categoria (round
+  // robin), a partir de las parejas ya cargadas. Nunca duplica un
+  // cruce que ya exista entre las dos mismas parejas.
+  // ------------------------------------------------------------
+  async function generarFixtureAutomatico(btnEl) {
+    const statusEl = document.getElementById("fixtureStatus");
+    const courtId = document.getElementById("fFixtureCancha").value;
+    if (!courtId) { showAlert("Agregá primero una cancha.", { type: "warn" }); return; }
+
+    const porCategoria = {};
+    pairs.forEach(p => { (porCategoria[p.category_id] = porCategoria[p.category_id] || []).push(p); });
+
+    const cruces = [];
+    Object.values(porCategoria).forEach(lista => {
+      for (let i = 0; i < lista.length; i++) {
+        for (let j = i + 1; j < lista.length; j++) {
+          cruces.push({ categoryId: lista[i].category_id, pairA: lista[i], pairB: lista[j] });
+        }
+      }
+    });
+
+    if (!cruces.length) {
+      showAlert("Ninguna categoría tiene 2 o más parejas cargadas todavía — no hay cruces para generar.", { type: "warn" });
+      return;
+    }
+
+    const clave = (a, b) => [a, b].sort().join("|");
+    const yaExistentes = new Set(
+      matches.filter(m => m.pair_a_id && m.pair_b_id).map(m => clave(m.pair_a_id, m.pair_b_id))
+    );
+    const nuevos = cruces.filter(c => !yaExistentes.has(clave(c.pairA.id, c.pairB.id)));
+
+    if (!nuevos.length) {
+      showAlert("Ya existen todos los cruces posibles entre las parejas cargadas — no hay nada nuevo para generar.", { type: "warn" });
+      return;
+    }
+
+    const confirmado = await showConfirm(
+      `Se van a generar ${nuevos.length} partido(s) nuevo(s), todos contra todos dentro de cada categoría. ¿Confirmás?`,
+      { okLabel: "Sí, generar" }
+    );
+    if (!confirmado) return;
+
+    btnEl.disabled = true;
+    statusEl.innerHTML = '<div class="status-msg ok">Generando…</div>';
+    try {
+      let numero = matches.reduce((max, m) => Math.max(max, m.match_number || 0), 0);
+      for (const cruce of nuevos) {
+        numero++;
+        const matchId = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random())).slice(0, 8);
+        const { error } = await client.from("matches").insert({
+          id: matchId, label: `Partido ${numero}`,
+          team_a_name: cruce.pairA.display_name, team_b_name: cruce.pairB.display_name,
+          tournament_id: tournamentId, tournament_day_id: tournamentDayId,
+          category_id: cruce.categoryId, court_id: courtId,
+          match_number: numero, sequence_order: numero,
+          pair_a_id: cruce.pairA.id, pair_b_id: cruce.pairB.id,
+          max_points: 30, sets_to_win: 1,
+        });
+        if (error) throw error;
+      }
+      statusEl.innerHTML = "";
+      await loadCategoriasUsadas();
+      await loadMatches();
+    } catch (err) {
+      statusEl.innerHTML = `<div class="status-msg err">No se pudo generar: ${escapeHtml(err.message || String(err))}</div>`;
+    }
+    btnEl.disabled = false;
   }
 
   async function agregarCancha() {
@@ -441,24 +536,56 @@
   }
 
   async function loadPlayersRoster() {
-    const { data } = await client.from("players").select("id, last_name, display_name").order("last_name").limit(2000);
+    const { data } = await client.from("players").select("id, first_name, last_name, display_name").order("last_name").limit(2000);
     playersRoster = data || [];
     document.getElementById("playersList").innerHTML =
       playersRoster.map(p => `<option value="${escapeHtml(p.last_name)}">`).join("");
   }
 
-  function findPlayerByLastName(text) {
-    const key = ImportarLogic.normalizeKey(text);
-    return playersRoster.find(p => ImportarLogic.normalizeKey(p.last_name || "") === key) || null;
+  function normKey(s) { return ImportarLogic.normalizeKey(s || ""); }
+
+  // Match exacto: mismo nombre y mismo apellido -> es la misma persona,
+  // sin preguntar nada.
+  function findPlayerExacto(nombre, apellido) {
+    const kn = normKey(nombre), ka = normKey(apellido);
+    return playersRoster.find(p => normKey(p.first_name) === kn && normKey(p.last_name) === ka) || null;
   }
 
-  async function resolveOrCreatePlayer(text) {
-    const existing = findPlayerByLastName(text);
-    if (existing) return existing.id;
-    const nombre = ImportarLogic.titleCase(text);
-    const { data, error } = await client.from("players").insert({ last_name: nombre, display_name: nombre }).select().single();
+  // Mismo apellido, nombre distinto -> posible duplicado: hay que
+  // preguntarle al admin si es la misma persona (typo/alias) u otra
+  // persona distinta con el mismo apellido, antes de crear un
+  // registro nuevo o de reusar uno que no corresponde.
+  function findPosibleDuplicado(nombre, apellido) {
+    const kn = normKey(nombre), ka = normKey(apellido);
+    return playersRoster.find(p => normKey(p.last_name) === ka && normKey(p.first_name) !== kn) || null;
+  }
+
+  async function resolveOrCreatePlayer(nombre, apellido) {
+    const exacto = findPlayerExacto(nombre, apellido);
+    if (exacto) return exacto.id;
+
+    const posibleDup = findPosibleDuplicado(nombre, apellido);
+    if (posibleDup) {
+      const nombreExistente = `${posibleDup.first_name || ""} ${posibleDup.last_name}`.trim();
+      const esLaMisma = await showConfirm(
+        `Ya existe "${nombreExistente}" en la base. ` +
+        `¿"${nombre} ${apellido}" es la misma persona (por ejemplo, un apodo o nombre distinto cargado antes), ` +
+        `o es alguien distinto que solo comparte el apellido?`,
+        { title: "Apellido repetido", okLabel: "Es la misma persona", cancelLabel: "Es otra persona" }
+      );
+      if (esLaMisma) return posibleDup.id;
+      // "Es otra persona": sigue de largo y crea un registro nuevo, aunque
+      // comparta apellido con posibleDup — es intencional.
+    }
+
+    const nombreTitle = ImportarLogic.titleCase(nombre);
+    const apellidoTitle = ImportarLogic.titleCase(apellido);
+    const displayName = `${nombreTitle} ${apellidoTitle}`.trim();
+    const { data, error } = await client.from("players").insert({
+      first_name: nombreTitle, last_name: apellidoTitle, display_name: displayName,
+    }).select().single();
     if (error) throw error;
-    playersRoster.push({ id: data.id, last_name: data.last_name, display_name: data.display_name });
+    playersRoster.push({ id: data.id, first_name: data.first_name, last_name: data.last_name, display_name: data.display_name });
     return data.id;
   }
 
@@ -468,13 +595,14 @@
   document.getElementById("fParejaNombre").addEventListener("input", () => { nombreParejaTocadoAMano = true; });
   function actualizarNombreParejaSugerido() {
     if (nombreParejaTocadoAMano) return;
-    const j1 = document.getElementById("fJugador1").value.trim();
-    const j2 = document.getElementById("fJugador2").value.trim();
-    const partes = [j1, j2].filter(Boolean).map(x => ImportarLogic.titleCase(x));
+    const j1 = [document.getElementById("fJugador1Nombre").value.trim(), document.getElementById("fJugador1Apellido").value.trim()].filter(Boolean).join(" ");
+    const j2 = [document.getElementById("fJugador2Nombre").value.trim(), document.getElementById("fJugador2Apellido").value.trim()].filter(Boolean).join(" ");
+    const partes = [j1, j2].filter(Boolean);
     document.getElementById("fParejaNombre").value = partes.join(" / ");
   }
-  document.getElementById("fJugador1").addEventListener("input", actualizarNombreParejaSugerido);
-  document.getElementById("fJugador2").addEventListener("input", actualizarNombreParejaSugerido);
+  ["fJugador1Nombre", "fJugador1Apellido", "fJugador2Nombre", "fJugador2Apellido"].forEach(id => {
+    document.getElementById(id).addEventListener("input", actualizarNombreParejaSugerido);
+  });
 
   async function loadPairs() {
     const { data } = await client.from("tournament_pairs").select("*, categories(name)").eq("tournament_id", tournamentId).order("display_name");
@@ -499,20 +627,25 @@
 
   async function agregarPareja(btnEl) {
     const categoryId = document.getElementById("fParejaCategoria").value;
-    const j1 = document.getElementById("fJugador1").value.trim();
-    const j2 = document.getElementById("fJugador2").value.trim();
+    const n1 = document.getElementById("fJugador1Nombre").value.trim();
+    const a1 = document.getElementById("fJugador1Apellido").value.trim();
+    const n2 = document.getElementById("fJugador2Nombre").value.trim();
+    const a2 = document.getElementById("fJugador2Apellido").value.trim();
     const nombreManual = document.getElementById("fParejaNombre").value.trim();
     const statusEl = document.getElementById("parejaStatus");
 
     if (!categoryId) { showAlert("Agregá primero una categoría.", { type: "warn" }); return; }
-    if (!j1) { showAlert("Falta el primer jugador de la pareja.", { type: "warn" }); return; }
+    if (!n1 || !a1) { showAlert("Falta nombre y apellido del jugador 1.", { type: "warn" }); return; }
+    if ((n2 && !a2) || (!n2 && a2)) { showAlert("El jugador 2 necesita nombre Y apellido, o dejalo vacío del todo.", { type: "warn" }); return; }
 
     btnEl.disabled = true;
     statusEl.innerHTML = '<div class="status-msg ok">Guardando…</div>';
     try {
-      const player1Id = await resolveOrCreatePlayer(j1);
-      const player2Id = j2 ? await resolveOrCreatePlayer(j2) : null;
-      const displayName = nombreManual || [j1, j2].filter(Boolean).map(x => ImportarLogic.titleCase(x)).join(" / ");
+      const player1Id = await resolveOrCreatePlayer(n1, a1);
+      const player2Id = (n2 && a2) ? await resolveOrCreatePlayer(n2, a2) : null;
+      const nombreCompleto1 = `${n1} ${a1}`.trim();
+      const nombreCompleto2 = (n2 && a2) ? `${n2} ${a2}`.trim() : "";
+      const displayName = nombreManual || [nombreCompleto1, nombreCompleto2].filter(Boolean).join(" / ");
 
       const { error } = await client.from("tournament_pairs").insert({
         tournament_id: tournamentId, category_id: categoryId,
@@ -521,9 +654,9 @@
       });
       if (error) throw error;
 
-      document.getElementById("fJugador1").value = "";
-      document.getElementById("fJugador2").value = "";
-      document.getElementById("fParejaNombre").value = "";
+      ["fJugador1Nombre", "fJugador1Apellido", "fJugador2Nombre", "fJugador2Apellido", "fParejaNombre"].forEach(
+        id => document.getElementById(id).value = ""
+      );
       nombreParejaTocadoAMano = false;
       statusEl.innerHTML = "";
       await loadPairs();
@@ -554,7 +687,13 @@
   function renderMatches() {
     const tbody = document.getElementById("matchesTableBody");
     tbody.innerHTML = matches.length ? matches.map(m => `
-      <tr>
+      <tr class="match-row" draggable="true" data-id="${m.id}"
+          ondragstart="onMatchDragStart(event, '${m.id}')"
+          ondragover="onMatchDragOver(event)"
+          ondragleave="onMatchDragLeave(event)"
+          ondrop="onMatchDrop(event, '${m.id}')"
+          ondragend="onMatchDragEnd(event)">
+        <td class="drag-handle">⠿⠿</td>
         <td>${m.match_number ?? "—"}</td>
         <td>${escapeHtml(m.categories ? m.categories.name : "—")}</td>
         <td>${escapeHtml(m.team_a_name || "Por definir")}</td>
@@ -563,7 +702,56 @@
         <td>${escapeHtml(m.courts ? m.courts.name : "—")}</td>
         <td><button class="btn-danger btn-small" onclick="eliminarPartido('${m.id}')">Borrar</button></td>
       </tr>
-    `).join("") : '<tr class="empty-row"><td colspan="7">Todavía no hay partidos cargados.</td></tr>';
+    `).join("") : '<tr class="empty-row"><td colspan="8">Todavía no hay partidos cargados.</td></tr>';
+  }
+
+  // ------------------------------------------------------------
+  // Orden de partidos por drag-and-drop: cambia "sequence_order" (el
+  // orden real de juego), nunca "match_number" (que sigue siendo la
+  // etiqueta fija "Partido N" con la que se referencian los
+  // Ganador/Perdedor de partido N°).
+  // ------------------------------------------------------------
+  let dragSrcId = null;
+
+  function onMatchDragStart(e, id) {
+    dragSrcId = id;
+    e.currentTarget.classList.add("dragging");
+  }
+  function onMatchDragOver(e) {
+    e.preventDefault();
+    e.currentTarget.classList.add("drag-over");
+  }
+  function onMatchDragLeave(e) {
+    e.currentTarget.classList.remove("drag-over");
+  }
+  async function onMatchDrop(e, targetId) {
+    e.preventDefault();
+    e.currentTarget.classList.remove("drag-over");
+    if (!dragSrcId || dragSrcId === targetId) return;
+    const srcIdx = matches.findIndex(m => m.id === dragSrcId);
+    const tgtIdx = matches.findIndex(m => m.id === targetId);
+    if (srcIdx === -1 || tgtIdx === -1) return;
+    const [moved] = matches.splice(srcIdx, 1);
+    matches.splice(tgtIdx, 0, moved);
+    renderMatches();
+    await persistirOrdenPartidos();
+  }
+  function onMatchDragEnd(e) {
+    e.currentTarget.classList.remove("dragging");
+    document.querySelectorAll("tr.match-row").forEach(el => el.classList.remove("drag-over"));
+  }
+
+  async function persistirOrdenPartidos() {
+    const statusEl = document.getElementById("partidoStatus");
+    statusEl.innerHTML = '<div class="status-msg ok">Guardando orden…</div>';
+    try {
+      await Promise.all(
+        matches.map((m, i) => client.from("matches").update({ sequence_order: i + 1 }).eq("id", m.id))
+      );
+      statusEl.innerHTML = "";
+    } catch (err) {
+      statusEl.innerHTML = `<div class="status-msg err">No se pudo guardar el orden: ${escapeHtml(err.message || String(err))}</div>`;
+    }
   }
 
   // ------------------------------------------------------------

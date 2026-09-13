@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MOCKUP — Nuevo flujo de torneo</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; min-height: 100vh;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #0b1320; color: #fff;
+  }
+  body { display: flex; justify-content: center; padding: 20px; }
+  .wrap { width: 100%; max-width: 640px; }
+
+  .mockup-banner {
+    background: rgba(255,204,0,0.12); border: 2px dashed #ffcc00; color: #ffcc00;
+    border-radius: 12px; padding: 10px 14px; font-size: 0.78rem; margin-bottom: 18px;
+    line-height: 1.4;
+  }
+
+  h1 { font-size: 1.05rem; text-transform: uppercase; letter-spacing: 1.5px; margin: 0 0 4px; text-align: center; }
+  .subtitle { text-align: center; color: #8a94a6; font-size: 0.82rem; margin-bottom: 20px; }
+
+  .step {
+    display: flex; align-items: center; gap: 10px; margin: 26px 0 12px;
+  }
+  .step-num {
+    width: 24px; height: 24px; border-radius: 50%; background: #3fa9f5; color: #0b1320;
+    display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem;
+    flex-shrink: 0;
+  }
+  .step-title { font-weight: 700; font-size: 0.95rem; }
+  .step-desc { color: #8a94a6; font-size: 0.78rem; margin: -6px 0 14px 34px; }
+
+  .card {
+    background: #1b2433; border-radius: 14px; padding: 16px 18px;
+    margin-bottom: 12px; border: 2px solid #3a4256;
+  }
+
+  .field { margin-bottom: 10px; }
+  .field label { display: block; font-size: 0.72rem; color: #8a94a6; margin-bottom: 4px; }
+  .field input, .field select {
+    width: 100%; padding: 9px 10px; border-radius: 8px; border: 2px solid #3a4256;
+    background: #0f1420; color: #fff; font-size: 0.88rem;
+  }
+  .field input:focus, .field select:focus { outline: none; border-color: #3fa9f5; }
+
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .btn-primary {
+    width: 100%; border: none; border-radius: 10px; padding: 11px;
+    background: #3fa9f5; color: #0b1320; font-weight: 700; font-size: 0.88rem; cursor: pointer;
+  }
+  .btn-primary:disabled { background: #2c3549; color: #6b7484; cursor: not-allowed; }
+  .btn-ghost {
+    width: 100%; border: 2px solid #3a4256; border-radius: 10px; padding: 10px;
+    background: transparent; color: #bcc4d1; font-weight: 700; font-size: 0.85rem; cursor: pointer; margin-top: 8px;
+  }
+
+  .pair-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 4px; border-bottom: 1px solid #2c3549; font-size: 0.86rem;
+  }
+  .pair-item:last-child { border-bottom: none; }
+  .pair-name { font-weight: 600; }
+  .pair-cat { color: #8a94a6; font-size: 0.74rem; }
+  .pair-remove { background: none; border: none; color: #ff6b6b; cursor: pointer; font-size: 0.8rem; }
+
+  .dup-warning {
+    background: rgba(255,204,0,0.1); border: 1px solid #ffcc00; border-radius: 10px;
+    padding: 10px 12px; font-size: 0.78rem; color: #ffcc00; margin-bottom: 10px; display: none;
+  }
+  .dup-warning.show { display: block; }
+  .dup-warning button {
+    margin-top: 8px; margin-right: 8px; border: none; border-radius: 6px; padding: 6px 10px;
+    font-size: 0.75rem; font-weight: 700; cursor: pointer;
+  }
+  .dup-yes { background: #5adc8c; color: #0b1320; }
+  .dup-no { background: #3a4256; color: #fff; }
+
+  .match-item {
+    display: flex; align-items: center; gap: 10px;
+    background: #0f1420; border: 2px solid #2c3549; border-radius: 10px;
+    padding: 10px 12px; margin-bottom: 8px; cursor: grab;
+  }
+  .match-item.dragging { opacity: 0.4; }
+  .match-item.drag-over { border-color: #3fa9f5; }
+  .drag-handle { color: #576079; font-size: 1.1rem; line-height: 1; user-select: none; }
+  .match-num {
+    width: 24px; height: 24px; border-radius: 6px; background: #1b2433; color: #8a94a6;
+    display: flex; align-items: center; justify-content: center; font-size: 0.78rem; font-weight: 700;
+    flex-shrink: 0;
+  }
+  .match-teams { flex: 1; font-size: 0.85rem; }
+  .match-teams b { color: #fff; }
+  .match-teams .vs { color: #576079; margin: 0 4px; }
+  .match-cat {
+    font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
+    color: #3fa9f5; background: rgba(63,169,245,0.12); border-radius: 6px;
+    padding: 2px 7px; white-space: nowrap; flex-shrink: 0;
+  }
+
+  .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+  .tab-btn {
+    flex: 1; border: 2px solid #3a4256; border-radius: 10px; padding: 9px;
+    background: transparent; color: #8a94a6; font-weight: 700; font-size: 0.78rem; cursor: pointer;
+  }
+  .tab-btn.active { border-color: #3fa9f5; color: #3fa9f5; background: rgba(63,169,245,0.08); }
+
+  .excel-drop {
+    border: 2px dashed #3a4256; border-radius: 10px; padding: 22px 14px;
+    text-align: center; color: #8a94a6; font-size: 0.82rem; margin-bottom: 10px;
+  }
+  .excel-drop b { color: #bcc4d1; }
+  .excel-preview-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 4px; border-bottom: 1px solid #2c3549; font-size: 0.82rem;
+  }
+  .excel-preview-item:last-child { border-bottom: none; }
+  .excel-status {
+    font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 8px; white-space: nowrap;
+  }
+  .excel-ok { background: rgba(90,220,140,0.15); color: #5adc8c; }
+  .excel-warn { background: rgba(255,204,0,0.15); color: #ffcc00; }
+
+  .empty { text-align: center; color: #8a94a6; padding: 18px 10px; font-size: 0.85rem; }
+  .hidden { display: none !important; }
+
+  .legend {
+    font-size: 0.74rem; color: #8a94a6; margin-top: 26px; border-top: 1px solid #2c3549;
+    padding-top: 14px; line-height: 1.5;
+  }
+  .legend b { color: #bcc4d1; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="mockup-banner">
+    🧪 <b>Mockup / prototipo</b> — no está conectado a Supabase, todo vive en memoria
+    del navegador solo para esta demo. Pensado para decidir el flujo antes de
+    tocar código real.
+  </div>
+
+  <h1>Nuevo torneo</h1>
+  <div class="subtitle">Racing Club TW — Pelota Paleta</div>
+
+  <div class="step"><div class="step-num">1</div><div class="step-title">Cargar el roster de parejas</div></div>
+  <div class="step-desc">Nombre y apellido en campos separados — vos decidís dónde va cada parte, así un nombre compuesto como "Ana María" en un apellido compuesto como "Dos Santos" queda bien sin que el sistema tenga que adivinar. A mano o desde un Excel, como prefieras.</div>
+
+  <div class="tabs">
+    <button class="tab-btn active" id="tabManual" onclick="switchTab('manual')">✋ Carga manual</button>
+    <button class="tab-btn" id="tabExcel" onclick="switchTab('excel')">📄 Importar Excel</button>
+  </div>
+
+  <div class="card" id="manualCard">
+    <div class="dup-warning" id="dupWarning">
+      Ya existe <b id="dupExistingName"></b> en la base. ¿Es la misma persona
+      que estás cargando, o alguien distinto con el mismo apellido?
+      <div>
+        <button class="dup-yes" onclick="resolveDup(true)">Es la misma persona</button>
+        <button class="dup-no" onclick="resolveDup(false)">Es otra persona</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Categoría</label>
+      <select id="fCategoria"></select>
+      <div style="display:flex; gap:8px; margin-top:6px;">
+        <input id="fNuevaCategoria" placeholder="Nombre de categoría nueva" style="flex:1;" onkeydown="if(event.key==='Enter'){event.preventDefault(); agregarCategoria();}" />
+        <button type="button" class="btn-ghost" style="width:auto; margin-top:0; padding:9px 14px; white-space:nowrap;" onclick="agregarCategoria()">+ Agregar</button>
+      </div>
+    </div>
+
+    <div class="row2">
+      <div class="field">
+        <label>Jugador 1 — Nombre</label>
+        <input id="fNombre1" placeholder="Ana María" />
+      </div>
+      <div class="field">
+        <label>Jugador 1 — Apellido</label>
+        <input id="fApellido1" placeholder="Dos Santos" />
+      </div>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>Jugador 2 — Nombre (opcional)</label>
+        <input id="fNombre2" placeholder="Diego" />
+      </div>
+      <div class="field">
+        <label>Jugador 2 — Apellido (opcional)</label>
+        <input id="fApellido2" placeholder="Gómez" />
+      </div>
+    </div>
+
+    <button class="btn-primary" onclick="agregarPareja()">+ Agregar pareja</button>
+  </div>
+
+  <div class="card hidden" id="excelCard">
+    <div class="excel-drop">
+      📄 Arrastrá tu Excel de parejas acá, o
+      <label style="color:#3fa9f5; cursor:pointer; font-weight:700;">
+        elegí un archivo<input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="onExcelChosen()" />
+      </label>
+      <div style="margin-top:6px; font-size:0.72rem;">Columnas esperadas: Categoría, Jugador 1 - Nombre, Jugador 1 - Apellido, Jugador 2 - Nombre, Jugador 2 - Apellido.</div>
+    </div>
+    <div id="excelPreview"></div>
+    <button class="btn-primary hidden" id="btnConfirmExcel" onclick="confirmarImportExcel()">Confirmar e incorporar al roster</button>
+  </div>
+
+  <div class="card" id="pairsCard">
+    <div id="pairsList"><div class="empty">Todavía no cargaste ninguna pareja.</div></div>
+  </div>
+
+  <div class="step"><div class="step-num">2</div><div class="step-title">Generar el fixture</div></div>
+  <div class="step-desc">Con las parejas cargadas, el sistema arma los cruces automáticamente (todos contra todos, por categoría).</div>
+
+  <div class="card">
+    <button class="btn-primary" id="btnGenerar" onclick="generarFixture()" disabled>
+      Generar fixture automático
+    </button>
+    <div style="text-align:center; color:#576079; font-size:0.72rem; margin-top:8px;" id="genHint">
+      Cargá al menos 2 parejas en la misma categoría
+    </div>
+  </div>
+
+  <div id="ordenSection" class="hidden">
+    <div class="step"><div class="step-num">3</div><div class="step-title">Ordenar los partidos</div></div>
+    <div class="step-desc">Arrastrá para definir en qué orden se juegan. Es lo único que hace falta tocar a mano.</div>
+
+    <div class="dup-warning" id="fixtureWarning" style="border-color:#576079; color:#8a94a6; background:rgba(87,96,121,0.12);"></div>
+
+    <div class="card">
+      <div id="matchesList"></div>
+    </div>
+
+    <button class="btn-ghost" onclick="alert('Mockup: acá se guardaría el orden y se publicaría el torneo.')">
+      Confirmar orden y publicar torneo
+    </button>
+  </div>
+
+  <div class="legend">
+    <b>Qué cambia respecto de hoy:</b> antes se cargaba solo el apellido y el
+    sistema intentaba adivinar si ya existía ese jugador — ahí aparecían los
+    casos ambiguos (dos "Real" en la misma categoría). Acá se pide nombre y
+    apellido en campos separados, así que nunca hay que adivinar dónde
+    termina uno y empieza el otro: un nombre compuesto como "Ana María" y un
+    apellido compuesto como "Dos Santos" van cada uno en su campo, tal cual
+    los escribiste. Solo se pregunta cuando de verdad hay dos personas con el
+    mismo apellido y nombre distinto — y ahí decidís vos, no el sistema.
+    Podés seguir usando el Excel para cargar el roster (con las mismas
+    columnas separadas de nombre y apellido), o cargar las parejas a mano —
+    las dos vías terminan en el mismo roster y pasan por la misma
+    confirmación cuando hay un apellido dudoso. El fixture se genera solo a
+    partir de ese roster, y lo único manual que queda es el orden de los
+    partidos con drag-and-drop, con la categoría de cada uno a la vista.
+  </div>
+
+</div>
+
+<script>
+  // ---- estado en memoria (mock) ----
+  // Nombre y apellido de cada jugador se guardan en campos separados,
+  // exactamente en la caja donde los tipeaste — nunca se intenta adivinar
+  // dónde corta uno y empieza el otro.
+  const rosterExistente = [
+    { nombre: "Martín", apellido: "Real", categoria: "Tercera" },
+  ];
+  let parejas = [];
+  let matches = [];
+  let pendingPareja = null;
+
+  // ---- categorías: arrancan con las 4 del club, pero se pueden agregar más ----
+  let categorias = ["Primera", "Segunda", "Tercera", "Cuarta"];
+
+  function renderCategorias(seleccionar) {
+    const sel = document.getElementById("fCategoria");
+    const valorPrevio = seleccionar || sel.value;
+    sel.innerHTML = categorias.map((c) => `<option>${c}</option>`).join("");
+    if (valorPrevio && categorias.includes(valorPrevio)) sel.value = valorPrevio;
+  }
+
+  function agregarCategoria() {
+    const input = document.getElementById("fNuevaCategoria");
+    const nombre = input.value.trim();
+    if (!nombre) { alert("Escribí un nombre para la categoría."); return; }
+    const yaExiste = categorias.some((c) => normaliza(c) === normaliza(nombre));
+    if (yaExiste) { alert(`Ya existe la categoría "${nombre}".`); return; }
+    categorias.push(nombre);
+    input.value = "";
+    renderCategorias(nombre);
+  }
+
+  function normaliza(s) { return (s || "").trim().toLowerCase(); }
+
+  function agregarPareja() {
+    const categoria = document.getElementById("fCategoria").value;
+    const n1 = document.getElementById("fNombre1").value.trim();
+    const a1 = document.getElementById("fApellido1").value.trim();
+    const n2 = document.getElementById("fNombre2").value.trim();
+    const a2 = document.getElementById("fApellido2").value.trim();
+
+    if (!n1 || !a1) { alert("Falta nombre y apellido del jugador 1."); return; }
+
+    // Mismo apellido pero nombre distinto -> pregunta antes de crear otro registro.
+    const posibleDup = rosterExistente.find(
+      (p) => normaliza(p.apellido) === normaliza(a1) && normaliza(p.nombre) !== normaliza(n1)
+    );
+    if (posibleDup) {
+      pendingPareja = { categoria, n1, a1, n2, a2 };
+      document.getElementById("dupExistingName").textContent = `${posibleDup.nombre} ${posibleDup.apellido}`;
+      document.getElementById("dupWarning").classList.add("show");
+      return;
+    }
+
+    confirmarAlta({ categoria, n1, a1, n2, a2 });
+  }
+
+  function resolveDup(esLaMisma) {
+    document.getElementById("dupWarning").classList.remove("show");
+    if (pendingPareja) confirmarAlta(pendingPareja, esLaMisma);
+    pendingPareja = null;
+  }
+
+  function confirmarAlta(p) {
+    parejas.push({
+      id: parejas.length + 1,
+      categoria: p.categoria,
+      nombreCompleto: p.n2 ? `${p.a1}/${p.a2}` : p.a1,
+      detalle: p.n2 ? `${p.n1} ${p.a1} / ${p.n2} ${p.a2}` : `${p.n1} ${p.a1}`,
+    });
+    ["fNombre1", "fApellido1", "fNombre2", "fApellido2"].forEach(
+      (id) => (document.getElementById(id).value = "")
+    );
+    renderPairs();
+  }
+
+  function quitarPareja(id) {
+    parejas = parejas.filter((p) => p.id !== id);
+    renderPairs();
+  }
+
+  // ---- tabs: carga manual vs excel ----
+  function switchTab(tab) {
+    document.getElementById("tabManual").classList.toggle("active", tab === "manual");
+    document.getElementById("tabExcel").classList.toggle("active", tab === "excel");
+    document.getElementById("manualCard").classList.toggle("hidden", tab !== "manual");
+    document.getElementById("excelCard").classList.toggle("hidden", tab !== "excel");
+  }
+
+  // ---- excel (simulado): al elegir cualquier archivo, mostramos un
+  // preview de ejemplo con un caso ambiguo, para probar el mismo flujo
+  // de confirmacion que en la carga manual, ahora en lote. ----
+  let excelParseado = [];
+  function onExcelChosen() {
+    excelParseado = [
+      { categoria: "Tercera", n1: "Diego", a1: "Gómez", n2: "Pablo", a2: "Suárez", ambiguo: false },
+      { categoria: "Tercera", n1: "Sebastián", a1: "Real", n2: "Iván", a2: "Cufré", ambiguo: true },
+      { categoria: "Segunda", n1: "Nicolás", a1: "Fernández", n2: "Lucas", a2: "Bianchi", ambiguo: false },
+      { categoria: "Primera", n1: "Ana María", a1: "Dos Santos", n2: "Carla", a2: "Medina", ambiguo: false },
+    ];
+    const el = document.getElementById("excelPreview");
+    el.innerHTML = excelParseado
+      .map(
+        (p) => `
+      <div class="excel-preview-item">
+        <div>${p.n1} ${p.a1} / ${p.n2} ${p.a2}<div class="pair-cat">${p.categoria}</div></div>
+        ${
+          p.ambiguo
+            ? `<span class="excel-status excel-warn">⚠ revisar "${p.a1}"</span>`
+            : `<span class="excel-status excel-ok">✓ ok</span>`
+        }
+      </div>`
+      )
+      .join("");
+    document.getElementById("btnConfirmExcel").classList.remove("hidden");
+  }
+  function confirmarImportExcel() {
+    const ambiguos = excelParseado.filter((p) => p.ambiguo);
+    if (ambiguos.length) {
+      alert(
+        `Antes de incorporar: ${ambiguos.length} pareja(s) quedaron marcadas para revisar ` +
+          `(mismo apellido que alguien ya cargado, nombre distinto). En la versión real, acá se ` +
+          `resuelven una por una igual que en la carga manual.`
+      );
+    }
+    excelParseado.forEach((p) => {
+      parejas.push({
+        id: parejas.length + 1,
+        categoria: p.categoria,
+        nombreCompleto: `${p.a1}/${p.a2}`,
+        detalle: `${p.n1} ${p.a1} / ${p.n2} ${p.a2}`,
+      });
+    });
+    excelParseado = [];
+    document.getElementById("excelPreview").innerHTML = "";
+    document.getElementById("btnConfirmExcel").classList.add("hidden");
+    renderPairs();
+    switchTab("manual");
+  }
+
+  function renderPairs() {
+    const el = document.getElementById("pairsList");
+    if (parejas.length === 0) {
+      el.innerHTML = '<div class="empty">Todavía no cargaste ninguna pareja.</div>';
+    } else {
+      el.innerHTML = parejas
+        .map(
+          (p) => `
+        <div class="pair-item">
+          <div>
+            <div class="pair-name">${p.detalle}</div>
+            <div class="pair-cat">${p.categoria}</div>
+          </div>
+          <button class="pair-remove" onclick="quitarPareja(${p.id})">Quitar</button>
+        </div>`
+        )
+        .join("");
+    }
+
+    const btn = document.getElementById("btnGenerar");
+    const porCategoria = {};
+    parejas.forEach((p) => (porCategoria[p.categoria] = (porCategoria[p.categoria] || 0) + 1));
+    const habilitado = Object.values(porCategoria).some((n) => n >= 2);
+    btn.disabled = !habilitado;
+    document.getElementById("genHint").style.display = habilitado ? "none" : "block";
+  }
+
+  function generarFixture() {
+    matches = [];
+    const porCategoria = {};
+    parejas.forEach((p) => {
+      (porCategoria[p.categoria] = porCategoria[p.categoria] || []).push(p);
+    });
+    let n = 1;
+    const categoriasSinCruces = [];
+    Object.entries(porCategoria).forEach(([cat, lista]) => {
+      if (lista.length < 2) {
+        categoriasSinCruces.push({ categoria: cat, faltan: 2 - lista.length });
+        return;
+      }
+      for (let i = 0; i < lista.length; i++) {
+        for (let j = i + 1; j < lista.length; j++) {
+          matches.push({
+            id: n,
+            numero: n,
+            categoria: cat,
+            a: lista[i].nombreCompleto,
+            b: lista[j].nombreCompleto,
+          });
+          n++;
+        }
+      }
+    });
+
+    const warnEl = document.getElementById("fixtureWarning");
+    if (categoriasSinCruces.length) {
+      warnEl.innerHTML =
+        `Se generaron ${matches.length} partido(s). Estas categorías quedaron sin cruces por ` +
+        `falta de parejas: ` +
+        categoriasSinCruces
+          .map((c) => `<b>${c.categoria}</b> (falta${c.faltan > 1 ? "n" : ""} ${c.faltan})`)
+          .join(", ") +
+        ".";
+      warnEl.classList.add("show");
+    } else {
+      warnEl.classList.remove("show");
+      warnEl.innerHTML = "";
+    }
+
+    document.getElementById("ordenSection").classList.remove("hidden");
+    renderMatches();
+    document.getElementById("ordenSection").scrollIntoView({ behavior: "smooth" });
+  }
+
+  let dragSrcId = null;
+
+  function renderMatches() {
+    const el = document.getElementById("matchesList");
+    el.innerHTML = matches
+      .map(
+        (m, i) => `
+      <div class="match-item" draggable="true" data-id="${m.id}"
+           ondragstart="onDragStart(event, ${m.id})"
+           ondragover="onDragOver(event, ${m.id})"
+           ondrop="onDrop(event, ${m.id})"
+           ondragend="onDragEnd(event)">
+        <span class="drag-handle">⠿⠿</span>
+        <span class="match-num">${i + 1}</span>
+        <span class="match-teams"><b>${m.a}</b><span class="vs">vs</span><b>${m.b}</b></span>
+        <span class="match-cat">${m.categoria}</span>
+      </div>`
+      )
+      .join("");
+  }
+
+  function onDragStart(e, id) {
+    dragSrcId = id;
+    e.target.classList.add("dragging");
+  }
+  function onDragOver(e, id) {
+    e.preventDefault();
+    e.currentTarget.classList.add("drag-over");
+  }
+  function onDrop(e, targetId) {
+    e.preventDefault();
+    e.currentTarget.classList.remove("drag-over");
+    if (dragSrcId === null || dragSrcId === targetId) return;
+    const srcIdx = matches.findIndex((m) => m.id === dragSrcId);
+    const tgtIdx = matches.findIndex((m) => m.id === targetId);
+    const [moved] = matches.splice(srcIdx, 1);
+    matches.splice(tgtIdx, 0, moved);
+    renderMatches();
+  }
+  function onDragEnd(e) {
+    e.target.classList.remove("dragging");
+    document.querySelectorAll(".match-item").forEach((el) => el.classList.remove("drag-over"));
+  }
+
+  renderCategorias();
+  renderPairs();
+</script>
+</body>
+</html>
