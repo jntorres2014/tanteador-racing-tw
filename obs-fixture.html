@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>OBS — Lista de partidos del torneo</title>
+<style>
+  * { box-sizing: border-box; }
+
+  /* Fondo transparente: pensado para OBS. Se usa con
+     obs-fixture.html?torneo=<id-del-torneo> — el id sale del link
+     "Lista de partidos (OBS)" de cada partido en el menu principal. */
+  html, body {
+    margin: 0; padding: 0; background: transparent;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: #fff; overflow: hidden;
+  }
+  body { display: flex; align-items: flex-start; justify-content: flex-start; padding: 16px; }
+
+  .stage-with-control { display: flex; align-items: flex-start; gap: 10px; }
+
+  .grid-board {
+    background: rgba(11, 19, 32, 0.95); border-radius: 12px; overflow: hidden;
+    border: 1px solid #3a4256; box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+    width: 560px; height: 320px; position: relative;
+  }
+  .grid-head {
+    display: flex; align-items: center; justify-content: space-between;
+    background: #131a27; padding: 10px 16px; border-bottom: 1px solid #232c3d;
+  }
+  .grid-head .tname {
+    font-weight: 800; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .grid-head .tsub { font-size: 0.68rem; color: #8a94a6; flex-shrink: 0; margin-left: 10px; }
+
+  .grid-scroll-viewport { height: calc(100% - 41px); overflow: hidden; position: relative; }
+  .grid-scroll-track { position: absolute; top: 0; left: 0; right: 0; }
+
+  .grid-row {
+    display: flex; align-items: center; gap: 10px; padding: 9px 16px;
+    border-bottom: 1px solid #1c2433; font-size: 0.82rem;
+  }
+  .grid-row.with-sets { padding: 7px 16px; align-items: flex-start; }
+  .grid-num { width: 26px; flex-shrink: 0; color: #576079; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .grid-cat {
+    flex-shrink: 0; font-size: 0.64rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;
+    padding: 2px 8px; border-radius: 999px; background: #232c3d; color: #8ecdfb; white-space: nowrap;
+  }
+  .grid-teams { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+  .grid-teams b { color: #fff; }
+  .grid-status { flex-shrink: 0; text-align: right; min-width: 78px; font-variant-numeric: tabular-nums; }
+  .grid-status.two-line { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+  .grid-status .sets-detail { font-size: 0.66rem; color: #576079; font-variant-numeric: tabular-nums; }
+  .st-live { color: #ff4b4b; font-weight: 800; display: inline-flex; align-items: center; gap: 4px; }
+  .st-dot { width: 6px; height: 6px; border-radius: 50%; background: #ff4b4b; animation: gPulse 1.2s infinite; }
+  @keyframes gPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+  .st-done { color: #3fd976; font-weight: 700; }
+  .st-pending { color: #576079; }
+  .grid-row.is-live { background: rgba(255,75,75,0.07); }
+
+  .fade-bottom {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 34px;
+    background: linear-gradient(180deg, transparent, #0b1320); pointer-events: none;
+  }
+
+  /* Control del operador: AL LADO del cuadro, no adentro. En OBS se
+     recorta la Fuente de navegador al ancho del grid-board nomas, asi
+     que esto queda afuera de lo que se transmite. */
+  .pause-btn {
+    width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; margin-top: 6px;
+    background: #1b2433; border: 1px solid #3a4256; color: #bcc4d1;
+    display: flex; align-items: center; justify-content: center; font-size: 0.8rem;
+    cursor: pointer; transition: background 0.15s; user-select: none;
+  }
+  .pause-btn:hover { background: #232c3d; }
+
+  .msg { text-align: center; font-size: 0.8rem; color: #ff8a8a; padding: 10px; }
+  .empty-state { padding: 30px 16px; text-align: center; color: #8a94a6; font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<div class="stage-with-control">
+  <div class="grid-board" id="gridBoard" style="display:none;">
+    <div class="grid-head">
+      <span class="tname" id="tName">Torneo</span>
+      <span class="tsub" id="tSub">0 partidos</span>
+    </div>
+    <div class="grid-scroll-viewport">
+      <div class="grid-scroll-track" id="scrollTrack"></div>
+    </div>
+    <div class="fade-bottom"></div>
+  </div>
+  <div class="pause-btn" id="pauseBtn" title="Pausar / reanudar scroll (queda fuera del recorte de OBS)">⏸</div>
+</div>
+<div class="msg" id="msg" style="display:none;"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script>
+  const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const params = new URLSearchParams(window.location.search);
+  const tournamentId = params.get("torneo");
+
+  const SECONDS_PER_ROW = 2.2; // a mas alto, scroll mas lento
+
+  function showMsg(text) {
+    document.getElementById("gridBoard").style.display = text ? "none" : "block";
+    document.getElementById("msg").style.display = text ? "block" : "none";
+    document.getElementById("msg").textContent = text || "";
+  }
+
+  if (!tournamentId) {
+    showMsg("Falta el torneo en el link (agregá ?torneo=id a la URL)");
+  } else {
+    init();
+  }
+
+  let isPaused = false;
+  const pauseBtn = document.getElementById("pauseBtn");
+  pauseBtn.addEventListener("click", () => {
+    isPaused = !isPaused;
+    pauseBtn.textContent = isPaused ? "▶" : "⏸";
+    const track = document.getElementById("scrollTrack");
+    track.style.animationPlayState = isPaused ? "paused" : "running";
+  });
+
+  function escapeHtml(s) {
+    return String(s || "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+  }
+
+  async function init() {
+    const { data: tournament } = await client
+      .from("tournaments")
+      .select("id, name")
+      .eq("id", tournamentId)
+      .single();
+
+    if (!tournament) {
+      showMsg("No se encontró este torneo");
+      return;
+    }
+    document.getElementById("tName").textContent = tournament.name;
+
+    await loadAndRender();
+
+    client
+      .channel("obs-fixture-" + tournamentId)
+      .on("postgres_changes", { event: "*", schema: "public", table: "matches", filter: `tournament_id=eq.${tournamentId}` },
+        () => loadAndRender())
+      .subscribe((status) => {
+        if (status !== "SUBSCRIBED") showMsg("Sin conexión con el servidor de datos");
+        else showMsg(null);
+      });
+
+    // Red de seguridad: si el socket de tiempo real falla en silencio
+    // por cualquier motivo, esto asegura que nunca quede mas de 30
+    // segundos mostrando datos viejos.
+    setInterval(loadAndRender, 30000);
+  }
+
+  async function loadAndRender() {
+    const { data: matches, error } = await client
+      .from("matches")
+      .select("*, categories(name), courts(name)")
+      .eq("tournament_id", tournamentId)
+      .order("sequence_order", { ascending: true, nullsFirst: false })
+      .order("match_number", { ascending: true, nullsFirst: false });
+
+    if (error) {
+      showMsg("No se pudo cargar el fixture");
+      return;
+    }
+
+    showMsg(null);
+    document.getElementById("tSub").textContent =
+      `${matches.length} partido${matches.length === 1 ? "" : "s"}`;
+
+    if (!matches.length) {
+      document.getElementById("scrollTrack").innerHTML =
+        '<div class="empty-state">Este torneo todavía no tiene partidos cargados.</div>';
+      document.getElementById("scrollTrack").style.animation = "none";
+      return;
+    }
+
+    const rowsHtml = matches.map(renderRow).join("");
+
+    const track = document.getElementById("scrollTrack");
+    const viewportHeight = document.querySelector(".grid-scroll-viewport").clientHeight;
+
+    // Si todos los partidos entran sin necesidad de scroll, se muestran
+    // quietos (no tiene sentido animar una lista que ya entera cabe).
+    // Si no entran, se duplica el listado una vez para que el loop del
+    // scroll sea perfectamente continuo (sin salto al volver al principio).
+    track.innerHTML = rowsHtml;
+    track.style.animation = "none";
+    const naturalHeight = track.scrollHeight;
+
+    if (naturalHeight <= viewportHeight) {
+      return;
+    }
+
+    track.innerHTML = rowsHtml + rowsHtml;
+    // Forzar reflow antes de medir la altura de UNA copia del listado.
+    void track.offsetHeight;
+    const singleHeight = track.scrollHeight / 2;
+    const duration = Math.max(8, matches.length * SECONDS_PER_ROW);
+
+    // Se arma el keyframe dinamicamente porque la distancia a recorrer
+    // depende de cuantos partidos tenga este torneo en particular.
+    const styleId = "obs-fixture-scroll-style";
+    let styleEl = document.getElementById(styleId);
+    if (!styleEl) {
+      styleEl = document.createElement("style");
+      styleEl.id = styleId;
+      document.head.appendChild(styleEl);
+    }
+    styleEl.textContent = `
+      @keyframes obsFixtureScroll {
+        0% { transform: translateY(0); }
+        100% { transform: translateY(-${singleHeight}px); }
+      }
+    `;
+    track.style.animation = `obsFixtureScroll ${duration}s linear infinite`;
+    track.style.animationPlayState = isPaused ? "paused" : "running";
+  }
+
+  function setStatus(m) {
+    const setsToWin = m.sets_to_win || 1;
+
+    if (setsToWin > 1) {
+      const history = m.set_history || [];
+      const detail = history.map((h) => `${h.score_a}-${h.score_b}`).join(" · ") || "—";
+
+      if (m.is_finished || m.match_status === "A" || m.match_status === "B") {
+        return `<span class="grid-status two-line"><span class="st-done">Sets ${m.sets_a || 0}-${m.sets_b || 0}</span><span class="sets-detail">${detail}</span></span>`;
+      }
+      if (m.is_live) {
+        return `<span class="grid-status two-line"><span class="st-live"><span class="st-dot"></span>Set ${m.current_set || 1}: ${m.score_a || 0}-${m.score_b || 0}</span><span class="sets-detail">Sets ${m.sets_a || 0}-${m.sets_b || 0}</span></span>`;
+      }
+      return `<span class="grid-status st-pending">Pendiente</span>`;
+    }
+
+    if (m.is_finished || m.match_status === "A" || m.match_status === "B") {
+      return `<span class="grid-status st-done">${m.score_a || 0}-${m.score_b || 0}</span>`;
+    }
+    if (m.is_live) {
+      return `<span class="grid-status"><span class="st-live"><span class="st-dot"></span>${m.score_a || 0}-${m.score_b || 0}</span></span>`;
+    }
+    return `<span class="grid-status st-pending">Pendiente</span>`;
+  }
+
+  function renderRow(m) {
+    const setsToWin = m.sets_to_win || 1;
+    const rowClasses = ["grid-row"];
+    if (m.is_live) rowClasses.push("is-live");
+    if (setsToWin > 1) rowClasses.push("with-sets");
+
+    const nameA = escapeHtml(m.team_a_name || "Por definir");
+    const nameB = escapeHtml(m.team_b_name || "Por definir");
+    const aWon = m.match_status === "A";
+    const bWon = m.match_status === "B";
+    const teams = `${aWon ? `<b>${nameA}</b>` : nameA} vs ${bWon ? `<b>${nameB}</b>` : nameB}`;
+
+    const catName = m.categories ? escapeHtml(m.categories.name) : "";
+
+    return `
+      <div class="${rowClasses.join(" ")}">
+        <span class="grid-num">${m.match_number != null ? m.match_number : "—"}</span>
+        ${catName ? `<span class="grid-cat">${catName}</span>` : ""}
+        <span class="grid-teams">${teams}</span>
+        ${setStatus(m)}
+      </div>
+    `;
+  }
+</script>
+</body>
+</html>

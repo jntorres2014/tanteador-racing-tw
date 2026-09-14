@@ -63,8 +63,7 @@
   }
   .link-control { background: #3fa9f5; color: #fff; }
   .link-display { background: #3a4256; color: #fff; }
-  .link-pausa { background: #3a4256; color: #ff9d4b; }
-  .link-combo { background: #3a4256; color: #3fd976; }
+  .link-grilla { background: #3a4256; color: #3fd976; }
 
   .empty { text-align: center; color: #8a94a6; padding: 20px; font-size: 0.9rem; }
 
@@ -362,8 +361,9 @@
         <div class="match-links">
           <a class="link-control" href="control.html?m=${m.id}">Control</a>
           <a class="link-display" href="display.html?m=${m.id}" target="_blank">Display (OBS)</a>
-          <a class="link-pausa" href="pausa.html?m=${m.id}" target="_blank">Pausa (OBS)</a>
-          <a class="link-combo" href="obs-tableros.html?m=${m.id}" target="_blank">Los 2 juntos (OBS)</a>
+          ${m.tournament_id
+            ? `<a class="link-grilla" href="obs-fixture.html?torneo=${m.tournament_id}" target="_blank">Lista de partidos (OBS)</a>`
+            : ""}
         </div>
       </div>
     `).join("");

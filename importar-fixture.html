@@ -134,7 +134,15 @@
     <div class="row">
       <div class="field"><label>Fecha de esta jornada</label><input id="fFecha" type="date" /></div>
       <div class="field"><label>Hora de inicio</label><input id="fHoraInicio" type="time" value="14:00" /></div>
-      <div class="field"><label>Cancha (si el Excel no la trae, se usa esta para todos los partidos)</label><input id="fCancha" placeholder="Cancha Racing" /></div>
+      <div class="field">
+        <label>Cancha (si el Excel no la trae, se usa esta para todos los partidos)</label>
+        <select id="fCanchaSelect" onchange="onCanchaSelectChange()">
+          <option value="Racing">Racing</option>
+          <option value="Rawson">Rawson</option>
+          <option value="__otra__">Otra… (escribir)</option>
+        </select>
+        <input id="fCancha" placeholder="Nombre de la cancha" style="margin-top:6px; display:none;" />
+      </div>
     </div>
     <div class="row">
       <div class="field">
@@ -216,6 +224,25 @@
 <script src="importar-logic.js"></script>
 <script>
   var client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // El select de Cancha (Racing/Rawson) es solo una ayuda para no
+  // escribir mal el nombre a mano — el campo real que lee el resto del
+  // codigo sigue siendo el input #fCancha, asi que lo mantenemos
+  // sincronizado con lo que se elige en el select. "Otra..." revela el
+  // input de texto libre por si en algun momento hay una tercera cancha.
+  function onCanchaSelectChange() {
+    const select = document.getElementById("fCanchaSelect");
+    const input = document.getElementById("fCancha");
+    if (select.value === "__otra__") {
+      input.style.display = "block";
+      input.value = "";
+      input.focus();
+    } else {
+      input.style.display = "none";
+      input.value = select.value;
+    }
+  }
+  document.getElementById("fCancha").value = document.getElementById("fCanchaSelect").value;
 
   // ------------------------------------------------------------
   // Esta pantalla crea torneos, categorias, parejas, etc. — todo
