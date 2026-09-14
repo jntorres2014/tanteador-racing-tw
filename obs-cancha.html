@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>OBS por cancha — Tanteador Racing Club TW</title>
+<style>
+  * { box-sizing: border-box; }
+
+  /* Fondo transparente: pensado para una sola Fuente de navegador en
+     OBS, fija en una cancha. El link no cambia entre partidos — esta
+     pagina sola decide que mostrar segun lo que este pasando en esa
+     cancha. */
+  html, body {
+    margin: 0; padding: 0; background: transparent;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: #fff; overflow: hidden;
+  }
+  body { display: flex; align-items: flex-start; justify-content: flex-start; padding: 16px; }
+
+  /* ---------- Modo 1: partido en vivo (igual a display.html) ---------- */
+  .scoreboard {
+    background: rgba(11, 19, 32, 0.88);
+    border-radius: 16px; padding: 14px 18px;
+    border: 2px solid #3fa9f5; box-shadow: 0 0 30px rgba(0, 0, 0, 0.6);
+    min-width: 380px;
+  }
+  .top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .club-logo { width: 42px; height: 42px; object-fit: cover; border-radius: 8px; flex-shrink: 0; }
+  .title h1 { margin: 0; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 1.5px; }
+  .title h3 { margin: 2px 0 0; font-weight: 400; font-size: 0.7rem; color: #bcc4d1; }
+  .status-line { margin-left: auto; text-align: right; }
+  #matchStatus { font-size: 0.85rem; font-weight: 700; }
+  #setsLine { font-size: 0.75rem; color: #bcc4d1; }
+  #timerDisplay { font-size: 0.85rem; color: #bcc4d1; font-variant-numeric: tabular-nums; }
+
+  .teams { display: flex; gap: 10px; }
+  .team {
+    flex: 1; background: rgba(34, 43, 58, 0.9); border-radius: 12px;
+    padding: 8px 10px; text-align: center; border: 2px solid #3fa9f5; min-width: 120px;
+  }
+  .team.a { border-color: #ff4b4b; }
+  .team.b { border-color: #3fa9f5; }
+
+  .team-name {
+    font-size: 0.85rem; font-weight: 700; display: flex; align-items: center;
+    justify-content: center; gap: 6px; margin-bottom: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  .server-ball {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #fbff5c, #d7d400 75%);
+    box-shadow: 0 0 6px rgba(255, 247, 0, 0.85);
+    opacity: 0; transform: scale(0.4);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    flex-shrink: 0;
+  }
+  .server-ball.active { opacity: 1; transform: scale(1); animation: bounce 1.4s ease-in-out infinite; }
+  @keyframes bounce { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-2px) scale(1); } }
+
+  .score { font-size: 2.6rem; font-weight: bold; line-height: 1; font-variant-numeric: tabular-nums; }
+
+  /* ---------- Modo 2: proximo partido (misma familia visual que pausa.html) ---------- */
+  .next-wrap { position: relative; width: 420px; padding-top: 22px; }
+  .next-pill {
+    position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    background: #0b1320; color: #ffcc00; border: 2px solid #3a4256;
+    border-radius: 999px; padding: 6px 20px;
+    font-size: 0.72rem; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase;
+    white-space: nowrap; z-index: 3;
+  }
+  .next-card {
+    position: relative; margin-top: 14px;
+    background: linear-gradient(180deg, #1b2433 0%, #141b28 100%);
+    border-radius: 26px; padding: 30px 24px 18px;
+    border: 2px solid #3a4256;
+    box-shadow: 0 0 0 1px rgba(63,169,245,0.15), 0 18px 50px rgba(0,0,0,0.55), 0 0 40px rgba(63,169,245,0.18);
+  }
+  .next-tag {
+    text-align: center; color: #3fd976; background: rgba(63,217,118,0.14);
+    border: 1px solid rgba(63,217,118,0.35); border-radius: 999px; display: inline-block;
+    padding: 4px 14px; font-size: 0.68rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+    position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+  }
+  .next-teams { display: flex; align-items: center; justify-content: center; margin-top: 24px; }
+  .next-team-block { flex: 1; min-width: 0; text-align: center; padding: 0 10px; }
+  .next-team-name {
+    font-size: 1.05rem; font-weight: 800; color: #fff; line-height: 1.25;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    overflow: hidden; text-overflow: ellipsis;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  }
+  .next-team-block.a .next-team-name { color: #ff8a8a; }
+  .next-team-block.b .next-team-name { color: #8ecdfb; }
+  .next-vs {
+    flex: none; width: 34px; height: 34px; border-radius: 50%;
+    background: #0b1320; border: 2px solid #3a4256;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 900; font-size: 0.78rem; color: #8a94a6; margin: 0 4px;
+  }
+  .next-meta {
+    text-align: center; margin-top: 18px; color: #8a94a6;
+    font-size: 0.74rem; font-weight: 600; letter-spacing: 0.5px;
+  }
+  .next-bottom-stripe {
+    height: 7px; border-radius: 8px; margin-top: 16px;
+    background: linear-gradient(90deg,
+      #ffcc00 0%, #ffcc00 25%, #3fa9f5 25%, #3fa9f5 50%,
+      #ff4b4b 50%, #ff4b4b 75%, #3fd976 75%, #3fd976 100%);
+  }
+
+  /* ---------- Modo 3: nada agendado en esta cancha ---------- */
+  .idle-card {
+    background: rgba(11, 19, 32, 0.78); border-radius: 16px; padding: 16px 22px;
+    border: 2px solid #3a4256; color: #8a94a6; font-size: 0.85rem; min-width: 300px; text-align: center;
+  }
+  .idle-card b { color: #bcc4d1; }
+
+  .msg { text-align: center; font-size: 0.8rem; color: #ff8a8a; padding: 10px; }
+</style>
+</head>
+<body>
+
+  <!-- Modo 1: marcador en vivo -->
+  <div class="scoreboard" id="scoreboard" style="display:none;">
+    <div class="top">
+      <img class="club-logo" src="logo.png" alt="" />
+      <div class="title">
+        <h1 id="matchLabel">Trinquete Francisco García</h1>
+        <h3 id="courtNameLive">Racing Club TW</h3>
+      </div>
+      <div class="status-line">
+        <div id="matchStatus">En juego</div>
+        <div id="setsLine" style="display:none;"></div>
+        <div id="timerDisplay">00:00</div>
+      </div>
+    </div>
+    <div class="teams">
+      <div class="team a">
+        <div class="team-name"><span id="nameA">Local</span><span class="server-ball" id="ballA"></span></div>
+        <div class="score" id="scoreA">0</div>
+      </div>
+      <div class="team b">
+        <div class="team-name"><span id="nameB">Visitante</span><span class="server-ball" id="ballB"></span></div>
+        <div class="score" id="scoreB">0</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modo 2: proximo partido -->
+  <div class="next-wrap" id="nextWrap" style="display:none;">
+    <div class="next-pill" id="nextCatPill">Categoría</div>
+    <div class="next-card">
+      <div class="next-tag">Próximo partido</div>
+      <div class="next-teams">
+        <div class="next-team-block a"><div class="next-team-name" id="nextNameA">Local</div></div>
+        <div class="next-vs">VS</div>
+        <div class="next-team-block b"><div class="next-team-name" id="nextNameB">Visitante</div></div>
+      </div>
+      <div class="next-meta" id="nextMeta">Partido N.° — · Cancha —</div>
+    </div>
+    <div class="next-bottom-stripe"></div>
+  </div>
+
+  <!-- Modo 3: nada agendado -->
+  <div class="idle-card" id="idleCard" style="display:none;">
+    <b id="idleCourtName">Esta cancha</b> no tiene partidos en vivo ni agendados por ahora.
+  </div>
+
+  <div class="msg" id="msg" style="display:none;"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script>
+  // ------------------------------------------------------------
+  // obs-cancha.html?cancha=Racing — UNA sola Fuente de navegador fija
+  // por cancha FISICA, que nunca hay que cambiar de link, ni siquiera
+  // entre torneos distintos (las canchas de la tabla "courts" son por
+  // torneo, con id nuevo cada vez, asi que esta pagina no fija un
+  // court_id: fija un NOMBRE, y en cada consulta resuelve sola cual es
+  // el torneo activo y cual es la cancha con ese nombre adentro).
+  // Decide sola que mostrar:
+  //   1) si hay un partido EN VIVO en esa cancha -> marcador (igual
+  //      a display.html/obs-tableros.html).
+  //   2) si no, el proximo partido agendado en esa cancha (el de
+  //      menor sequence_order que todavia no termino).
+  //   3) si tampoco hay proximo -> tarjeta "sin partidos por ahora".
+  // Se suscribe a TODOS los cambios de "matches" y "tournaments" (sin
+  // filtro, porque el court_id real puede cambiar de torneo a torneo)
+  // y vuelve a resolver todo desde cero con cada cambio.
+  // ------------------------------------------------------------
+  const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const params = new URLSearchParams(window.location.search);
+  const courtName = params.get("cancha");
+
+  const modos = ["scoreboard", "nextWrap", "idleCard"];
+  function mostrarModo(id) {
+    modos.forEach((m) => (document.getElementById(m).style.display = m === id ? "block" : "none"));
+  }
+  function showMsg(text) {
+    document.getElementById("msg").style.display = text ? "block" : "none";
+    document.getElementById("msg").textContent = text || "";
+    if (text) modos.forEach((m) => (document.getElementById(m).style.display = "none"));
+  }
+
+  if (!courtName) {
+    showMsg("Falta la cancha en el link (agregá ?cancha=Racing a la URL, por ejemplo)");
+  } else {
+    init();
+  }
+
+  let currentState = null;
+  let currentMode = null; // "live" | "next" | "idle"
+  let timerHandle = null;
+
+  async function init() {
+    await refresh();
+
+    client
+      .channel("obs-cancha-" + courtName)
+      .on("postgres_changes", { event: "*", schema: "public", table: "matches" }, () => refresh())
+      .on("postgres_changes", { event: "*", schema: "public", table: "tournaments" }, () => refresh())
+      .subscribe((status) => {
+        if (status !== "SUBSCRIBED") showMsg("Sin conexión con el servidor de datos");
+        else if (currentMode) showMsg(null);
+      });
+  }
+
+  // Busca el torneo activo (en curso, o publicado si ninguno esta en
+  // curso, o el mas reciente si ninguno esta publicado) y dentro de
+  // ese torneo la cancha cuyo nombre coincide (sin importar mayusculas).
+  async function resolveCourt() {
+    const { data: tournaments } = await client
+      .from("tournaments")
+      .select("id, status, start_date, created_at")
+      .in("status", ["in_progress", "published"])
+      .order("start_date", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false });
+
+    let tournamentId = null;
+    if (tournaments && tournaments.length) {
+      const enCurso = tournaments.find((t) => t.status === "in_progress");
+      tournamentId = (enCurso || tournaments[0]).id;
+    } else {
+      const { data: ultimo } = await client
+        .from("tournaments")
+        .select("id")
+        .order("created_at", { ascending: false })
+        .limit(1);
+      if (ultimo && ultimo.length) tournamentId = ultimo[0].id;
+    }
+
+    if (!tournamentId) return null;
+
+    const { data: courts } = await client
+      .from("courts")
+      .select("id, name")
+      .eq("tournament_id", tournamentId)
+      .ilike("name", courtName);
+
+    return (courts && courts[0]) || null;
+  }
+
+  async function refresh() {
+    const court = await resolveCourt();
+    if (!court) {
+      showMsg(`No se encontró la cancha "${courtName}" en el torneo activo`);
+      return;
+    }
+    document.getElementById("courtNameLive").textContent = court.name;
+    document.getElementById("idleCourtName").textContent = court.name;
+
+    // 1) hay algun partido EN VIVO en esta cancha?
+    const { data: live } = await client
+      .from("matches")
+      .select("*, categories(name)")
+      .eq("court_id", court.id)
+      .eq("is_live", true)
+      .order("updated_at", { ascending: false })
+      .limit(1);
+
+    if (live && live.length) {
+      showMsg(null);
+      setModoVivo(live[0]);
+      return;
+    }
+
+    // 2) si no, el proximo que todavia no arranco ni termino
+    const { data: next } = await client
+      .from("matches")
+      .select("*, categories(name)")
+      .eq("court_id", court.id)
+      .eq("is_finished", false)
+      .eq("is_live", false)
+      .order("sequence_order", { ascending: true, nullsFirst: false })
+      .limit(1);
+
+    showMsg(null);
+    if (next && next.length) {
+      setModoProximo(next[0]);
+    } else {
+      setModoInactivo();
+    }
+  }
+
+  function pararTimer() {
+    if (timerHandle) { clearInterval(timerHandle); timerHandle = null; }
+  }
+
+  function setModoVivo(match) {
+    currentMode = "live";
+    currentState = match;
+    mostrarModo("scoreboard");
+    renderVivo();
+    pararTimer();
+    timerHandle = setInterval(renderTimer, 1000);
+  }
+
+  function setModoProximo(match) {
+    currentMode = "next";
+    currentState = match;
+    pararTimer();
+    mostrarModo("nextWrap");
+    renderProximo();
+  }
+
+  function setModoInactivo() {
+    currentMode = "idle";
+    currentState = null;
+    pararTimer();
+    mostrarModo("idleCard");
+  }
+
+  function computeTimerSeconds(s) {
+    let secs = s.timer_accumulated || 0;
+    if (s.timer_running_since) secs += (Date.now() - s.timer_running_since) / 1000;
+    return Math.floor(secs);
+  }
+  function formatTime(seconds) {
+    const m = Math.floor(seconds / 60);
+    const sec = seconds % 60;
+    return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+  }
+  function renderTimer() {
+    if (currentMode !== "live" || !currentState) return;
+    document.getElementById("timerDisplay").textContent = formatTime(computeTimerSeconds(currentState));
+  }
+
+  function renderVivo() {
+    const s = currentState;
+    document.getElementById("matchLabel").textContent = s.label || "Trinquete Francisco García";
+    document.getElementById("nameA").textContent = s.team_a_name;
+    document.getElementById("nameB").textContent = s.team_b_name;
+    document.getElementById("scoreA").textContent = s.score_a;
+    document.getElementById("scoreB").textContent = s.score_b;
+    document.getElementById("ballA").classList.toggle("active", s.server === "A");
+    document.getElementById("ballB").classList.toggle("active", s.server === "B");
+
+    const statusEl = document.getElementById("matchStatus");
+    if (s.match_status === "A") { statusEl.textContent = `Ganó ${s.team_a_name}`; statusEl.style.color = "#ff4b4b"; }
+    else if (s.match_status === "B") { statusEl.textContent = `Ganó ${s.team_b_name}`; statusEl.style.color = "#3fa9f5"; }
+    else { statusEl.textContent = "En juego"; statusEl.style.color = "#fff"; }
+
+    const setsToWin = s.sets_to_win || 1;
+    const setsLine = document.getElementById("setsLine");
+    if (setsToWin > 1) {
+      setsLine.style.display = "block";
+      setsLine.textContent = `Set ${s.current_set || 1} · Sets ${s.sets_a || 0}-${s.sets_b || 0}`;
+    } else {
+      setsLine.style.display = "none";
+    }
+
+    renderTimer();
+  }
+
+  function renderProximo() {
+    const s = currentState;
+    document.getElementById("nextNameA").textContent = s.team_a_name || "Por definir";
+    document.getElementById("nextNameB").textContent = s.team_b_name || "Por definir";
+
+    const catEl = document.getElementById("nextCatPill");
+    const catName = s.categories ? s.categories.name : null;
+    catEl.textContent = catName || s.label || "Partido";
+    catEl.style.display = catName || s.label ? "block" : "none";
+
+    const metaParts = [];
+    if (s.match_number != null) metaParts.push(`Partido N.° ${s.match_number}`);
+    if (s.max_points) metaParts.push(`a ${s.max_points} tantos`);
+    document.getElementById("nextMeta").textContent = metaParts.join(" · ");
+  }
+</script>
+</body>
+</html>
