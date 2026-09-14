@@ -12,75 +12,90 @@
   }
   body { display: flex; align-items: flex-start; justify-content: flex-start; padding: 16px; }
 
-  .scoreboard {
-    background: rgba(11, 19, 32, 0.88);
-    border-radius: 16px; padding: 14px 18px;
-    border: 2px solid #3fa9f5; box-shadow: 0 0 30px rgba(0, 0, 0, 0.6);
-    min-width: 380px;
+  /* ---------- Marcador estilo tenis ---------- */
+  .ts-board {
+    background: rgba(11, 19, 32, 0.94); border-radius: 10px; overflow: hidden;
+    border: 1px solid #3a4256; min-width: 380px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
   }
-
-  .top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-  .club-logo { width: 42px; height: 42px; object-fit: cover; border-radius: 8px; flex-shrink: 0; }
-  .title h1 { margin: 0; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 1.5px; }
-  .title h3 { margin: 2px 0 0; font-weight: 400; font-size: 0.7rem; color: #bcc4d1; }
-  .status-line { margin-left: auto; text-align: right; }
-  #matchStatus { font-size: 0.85rem; font-weight: 700; }
-  #timerDisplay { font-size: 0.85rem; color: #bcc4d1; font-variant-numeric: tabular-nums; }
-
-  .teams { display: flex; gap: 10px; }
-  .team {
-    flex: 1; background: rgba(34, 43, 58, 0.9); border-radius: 12px;
-    padding: 8px 10px; text-align: center; border: 2px solid #3fa9f5; min-width: 120px;
+  .ts-head {
+    display: flex; align-items: center; justify-content: space-between;
+    background: #131a27; padding: 7px 14px; font-size: 0.7rem; color: #8a94a6;
+    letter-spacing: 1px; text-transform: uppercase; border-bottom: 1px solid #232c3d;
   }
-  .team.a { border-color: #ff4b4b; }
-  .team.b { border-color: #3fa9f5; }
+  .ts-head-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .ts-logo { width: 20px; height: 20px; border-radius: 4px; object-fit: cover; flex-shrink: 0; }
+  .ts-head-left span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ts-live { color: #ff4b4b; font-weight: 800; display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+  .ts-dot { width: 6px; height: 6px; border-radius: 50%; background: #ff4b4b; animation: tsPulse 1.2s infinite; }
+  @keyframes tsPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
-  .team-name {
-    font-size: 0.85rem; font-weight: 700; display: flex; align-items: center;
-    justify-content: center; gap: 6px; margin-bottom: 2px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  .ts-row {
+    display: flex; align-items: center; padding: 10px 14px; gap: 10px;
+    border-bottom: 1px solid #1c2433;
   }
-
-  .server-ball {
-    width: 10px; height: 10px; border-radius: 50%;
+  .ts-row:last-of-type { border-bottom: none; }
+  .ts-serve {
+    width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
     background: radial-gradient(circle at 35% 30%, #fbff5c, #d7d400 75%);
     box-shadow: 0 0 6px rgba(255, 247, 0, 0.85);
     opacity: 0; transform: scale(0.4);
     transition: opacity 0.2s ease, transform 0.2s ease;
-    flex-shrink: 0;
   }
-  .server-ball.active { opacity: 1; transform: scale(1); animation: bounce 1.4s ease-in-out infinite; }
-  @keyframes bounce { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-2px) scale(1); } }
+  .ts-serve.active { opacity: 1; transform: scale(1); animation: tsBounce 1.4s ease-in-out infinite; }
+  @keyframes tsBounce { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-2px) scale(1); } }
 
-  .score { font-size: 2.6rem; font-weight: bold; line-height: 1; font-variant-numeric: tabular-nums; }
+  .ts-name {
+    flex: 1; font-weight: 700; font-size: 0.95rem; min-width: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .ts-sets { display: flex; gap: 6px; flex-shrink: 0; }
+  .ts-set {
+    width: 26px; text-align: center; font-size: 0.85rem; color: #8a94a6;
+    font-variant-numeric: tabular-nums;
+  }
+  .ts-set.won { color: #fff; font-weight: 700; }
+  .ts-current {
+    width: 44px; height: 36px; display: flex; align-items: center; justify-content: center;
+    background: #3fa9f5; color: #0b1320; font-weight: 900; font-size: 1.35rem; border-radius: 7px;
+    font-variant-numeric: tabular-nums; flex-shrink: 0;
+  }
+  .ts-row.b .ts-current { background: #ff4b4b; }
+
+  .ts-foot {
+    display: flex; align-items: center; justify-content: space-between;
+    background: #131a27; padding: 6px 14px; font-size: 0.74rem; color: #8a94a6;
+    border-top: 1px solid #232c3d;
+  }
+  .ts-setstatus { font-weight: 700; color: #ffcc00; }
+  .ts-timer { font-variant-numeric: tabular-nums; }
 
   .msg { text-align: center; font-size: 0.8rem; color: #ff8a8a; padding: 10px; }
 </style>
 </head>
 <body>
-  <div class="scoreboard" id="scoreboard">
-    <div class="top">
-      <img class="club-logo" src="logo.png" alt="" />
-      <div class="title">
-        <h1 id="matchLabel">Trinquete Francisco García</h1>
-        <h3>Racing Club TW</h3>
-      </div>
-      <div class="status-line">
-        <div id="matchStatus">En juego</div>
-        <div id="setsLine" style="display:none;"></div>
-        <div id="timerDisplay">00:00</div>
-      </div>
+  <div class="ts-board" id="scoreboard">
+    <div class="ts-head">
+      <span class="ts-head-left">
+        <img class="ts-logo" src="logo.png" alt="" />
+        <span id="matchLabel">Trinquete Francisco García</span>
+      </span>
+      <span class="ts-live" id="liveBadge"><span class="ts-dot"></span>EN VIVO</span>
     </div>
-
-    <div class="teams">
-      <div class="team a">
-        <div class="team-name"><span id="nameA">Local</span><span class="server-ball" id="ballA"></span></div>
-        <div class="score" id="scoreA">0</div>
-      </div>
-      <div class="team b">
-        <div class="team-name"><span id="nameB">Visitante</span><span class="server-ball" id="ballB"></span></div>
-        <div class="score" id="scoreB">0</div>
-      </div>
+    <div class="ts-row a" id="rowA">
+      <span class="ts-serve" id="ballA"></span>
+      <span class="ts-name" id="nameA">Local</span>
+      <span class="ts-sets" id="setsA"></span>
+      <span class="ts-current" id="scoreA">0</span>
+    </div>
+    <div class="ts-row b" id="rowB">
+      <span class="ts-serve" id="ballB"></span>
+      <span class="ts-name" id="nameB">Visitante</span>
+      <span class="ts-sets" id="setsB"></span>
+      <span class="ts-current" id="scoreB">0</span>
+    </div>
+    <div class="ts-foot">
+      <span class="ts-setstatus" id="matchStatus">En juego</span>
+      <span class="ts-timer" id="timerDisplay">00:00</span>
     </div>
   </div>
   <div class="msg" id="msg" style="display:none;"></div>
@@ -108,7 +123,7 @@
     label: "Partido", team_a_name: "Local", team_b_name: "Visitante", score_a: 0, score_b: 0,
     server: null, max_points: 30, match_status: "playing",
     timer_accumulated: 0, timer_running_since: null,
-    sets_to_win: 1, sets_a: 0, sets_b: 0, current_set: 1,
+    sets_to_win: 1, sets_a: 0, sets_b: 0, current_set: 1, set_history: [],
   };
   let currentState = { ...defaultState };
 
@@ -147,6 +162,19 @@
     return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   }
 
+  // Arma las cajitas chicas de sets ya jugados para un lado ("a" o "b"),
+  // a partir de set_history: [{set, score_a, score_b}, ...]
+  function renderSetHistory(elId, side) {
+    const history = currentState.set_history || [];
+    const el = document.getElementById(elId);
+    el.innerHTML = history.map((h) => {
+      const mine = side === "a" ? h.score_a : h.score_b;
+      const other = side === "a" ? h.score_b : h.score_a;
+      const won = mine > other;
+      return `<span class="ts-set${won ? " won" : ""}">${mine}</span>`;
+    }).join("");
+  }
+
   function render() {
     const s = currentState;
     document.getElementById("matchLabel").textContent = s.label || "Trinquete Francisco García";
@@ -157,18 +185,28 @@
     document.getElementById("ballA").classList.toggle("active", s.server === "A");
     document.getElementById("ballB").classList.toggle("active", s.server === "B");
 
-    const statusEl = document.getElementById("matchStatus");
-    if (s.match_status === "A") { statusEl.textContent = `Ganó ${s.team_a_name}`; statusEl.style.color = "#ff4b4b"; }
-    else if (s.match_status === "B") { statusEl.textContent = `Ganó ${s.team_b_name}`; statusEl.style.color = "#3fa9f5"; }
-    else { statusEl.textContent = "En juego"; statusEl.style.color = "#fff"; }
-
     const setsToWin = s.sets_to_win || 1;
-    const setsLine = document.getElementById("setsLine");
+    document.getElementById("setsA").style.display = setsToWin > 1 ? "flex" : "none";
+    document.getElementById("setsB").style.display = setsToWin > 1 ? "flex" : "none";
     if (setsToWin > 1) {
-      setsLine.style.display = "block";
-      setsLine.textContent = `Set ${s.current_set || 1} · Sets ${s.sets_a || 0}-${s.sets_b || 0}`;
+      renderSetHistory("setsA", "a");
+      renderSetHistory("setsB", "b");
+    }
+
+    const liveBadge = document.getElementById("liveBadge");
+    const statusEl = document.getElementById("matchStatus");
+    if (s.match_status === "A") {
+      liveBadge.style.display = "none";
+      statusEl.textContent = `Ganó ${s.team_a_name}`;
+      statusEl.style.color = "#ff4b4b";
+    } else if (s.match_status === "B") {
+      liveBadge.style.display = "none";
+      statusEl.textContent = `Ganó ${s.team_b_name}`;
+      statusEl.style.color = "#3fa9f5";
     } else {
-      setsLine.style.display = "none";
+      liveBadge.style.display = "flex";
+      statusEl.style.color = "#ffcc00";
+      statusEl.textContent = setsToWin > 1 ? `Set ${s.current_set || 1} en juego` : "En juego";
     }
 
     document.getElementById("timerDisplay").textContent = formatTime(computeTimerSeconds());

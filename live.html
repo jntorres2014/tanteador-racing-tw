@@ -15,41 +15,65 @@
   body { display: flex; justify-content: center; padding: 20px; }
   .wrap { width: 100%; max-width: 520px; }
 
-  .logo-row { text-align: center; margin-bottom: 12px; }
+  .logo-row { text-align: center; margin-bottom: 18px; }
   .logo-row img { width: 72px; height: 72px; border-radius: 12px; object-fit: cover; }
   .logo-row h1 { font-size: 1.1rem; text-transform: uppercase; letter-spacing: 2px; margin: 8px 0 0; }
   .logo-row h3 { font-weight: 400; color: #bcc4d1; margin: 2px 0 0; font-size: 0.85rem; }
 
-  .live-badge {
-    display: inline-flex; align-items: center; gap: 6px;
-    background: rgba(255, 75, 75, 0.15); color: #ff4b4b; font-weight: 700;
-    padding: 5px 12px; border-radius: 20px; font-size: 0.78rem; margin-bottom: 10px;
+  /* ---------- Marcador estilo tenis (misma familia que display.html) ---------- */
+  .ts-board {
+    background: rgba(11, 19, 32, 0.94); border-radius: 10px; overflow: hidden;
+    border: 1px solid #3a4256; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5); margin-bottom: 20px;
   }
-  .live-dot { width: 7px; height: 7px; border-radius: 50%; background: #ff4b4b; animation: pulse 1.2s infinite; }
-  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
-
-  .board {
-    background: #1b2433; border-radius: 18px; padding: 18px;
-    border: 3px solid #3fa9f5; margin-bottom: 16px;
+  .ts-head {
+    display: flex; align-items: center; justify-content: space-between;
+    background: #131a27; padding: 8px 14px; font-size: 0.72rem; color: #8a94a6;
+    letter-spacing: 1px; text-transform: uppercase; border-bottom: 1px solid #232c3d;
   }
-  .board-label { font-weight: 700; font-size: 1rem; margin-bottom: 10px; }
+  .ts-head span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ts-live { color: #ff4b4b; font-weight: 800; display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+  .ts-dot { width: 6px; height: 6px; border-radius: 50%; background: #ff4b4b; animation: tsPulse 1.2s infinite; }
+  @keyframes tsPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
-  .teams { display: flex; gap: 12px; margin-bottom: 10px; }
-  .team {
-    flex: 1; background: #222b3a; border-radius: 14px; padding: 12px;
-    text-align: center; border: 2px solid #3fa9f5;
+  .ts-row {
+    display: flex; align-items: center; padding: 12px 14px; gap: 10px;
+    border-bottom: 1px solid #1c2433;
   }
-  .team.a { border-color: #ff4b4b; }
-  .team.b { border-color: #3fa9f5; }
-  .team-name { font-size: 0.9rem; font-weight: 700; margin-bottom: 4px; }
-  .score { font-size: 2.2rem; font-weight: bold; font-variant-numeric: tabular-nums; }
-
-  #matchStatus-placeholder { text-align: center; font-size: 0.9rem; }
+  .ts-row:last-of-type { border-bottom: none; }
+  .ts-serve {
+    width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
+    background: radial-gradient(circle at 35% 30%, #fbff5c, #d7d400 75%);
+    box-shadow: 0 0 6px rgba(255, 247, 0, 0.85);
+    opacity: 0; transform: scale(0.4);
+  }
+  .ts-serve.active { opacity: 1; transform: scale(1); }
+  .ts-name {
+    flex: 1; font-weight: 700; font-size: 1rem; min-width: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .ts-sets { display: flex; gap: 6px; flex-shrink: 0; }
+  .ts-set {
+    width: 26px; text-align: center; font-size: 0.9rem; color: #8a94a6;
+    font-variant-numeric: tabular-nums;
+  }
+  .ts-set.won { color: #fff; font-weight: 700; }
+  .ts-current {
+    width: 46px; height: 38px; display: flex; align-items: center; justify-content: center;
+    background: #3fa9f5; color: #0b1320; font-weight: 900; font-size: 1.4rem; border-radius: 8px;
+    font-variant-numeric: tabular-nums; flex-shrink: 0;
+  }
+  .ts-row.b .ts-current { background: #ff4b4b; }
+  .ts-foot {
+    display: flex; align-items: center; justify-content: space-between;
+    background: #131a27; padding: 7px 14px; font-size: 0.78rem; color: #8a94a6;
+    border-top: 1px solid #232c3d;
+  }
+  .ts-setstatus { font-weight: 700; color: #ffcc00; }
 
   .yt-btn {
-    display: block; text-align: center; margin-top: 10px;
+    display: block; text-align: center; margin: 0; border-top: 1px solid #232c3d;
     background: #ff0000; color: #fff; text-decoration: none;
-    padding: 12px; border-radius: 10px; font-weight: 700; font-size: 0.9rem;
+    padding: 12px; font-weight: 700; font-size: 0.9rem;
   }
 
   .offline {
@@ -81,10 +105,23 @@
     return String(s || "").replace(/[&<>"\'']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
   }
 
-  function statusText(s) {
-    if (s.match_status === "A") return { text: `Ganó ${s.team_a_name}`, color: "#ff4b4b" };
-    if (s.match_status === "B") return { text: `Ganó ${s.team_b_name}`, color: "#3fa9f5" };
-    return { text: "En juego", color: "#fff" };
+  // Cajitas chicas de sets ya jugados, a partir de set_history:
+  // [{set, score_a, score_b}, ...]
+  function renderSetHistory(s, side) {
+    const history = s.set_history || [];
+    return history.map((h) => {
+      const mine = side === "a" ? h.score_a : h.score_b;
+      const other = side === "a" ? h.score_b : h.score_a;
+      const won = mine > other;
+      return `<span class="ts-set${won ? " won" : ""}">${mine}</span>`;
+    }).join("");
+  }
+
+  function footStatus(s) {
+    const setsToWin = s.sets_to_win || 1;
+    if (s.match_status === "A") return { text: `Ganó ${escapeHtml(s.team_a_name)}`, color: "#ff4b4b" };
+    if (s.match_status === "B") return { text: `Ganó ${escapeHtml(s.team_b_name)}`, color: "#3fa9f5" };
+    return { text: setsToWin > 1 ? `Set ${s.current_set || 1} en juego` : "En juego", color: "#ffcc00" };
   }
 
   function render(matches) {
@@ -99,30 +136,30 @@
     offline.style.display = "none";
 
     list.innerHTML = matches.map((s) => {
-      const st = statusText(s);
       const usesSets = (s.sets_to_win || 1) > 1;
-      const setsLine = usesSets
-        ? `<div style="text-align:center; font-size:0.8rem; color:#bcc4d1; margin-bottom:6px;">Set ${s.current_set || 1} · Sets ${s.sets_a || 0}-${s.sets_b || 0}</div>`
-        : "";
+      const st = footStatus(s);
       return `
-        <div>
-          <div class="live-badge"><span class="live-dot"></span> EN VIVO</div>
-          <div class="board">
-            <div class="board-label">${escapeHtml(s.label)}</div>
-            ${setsLine}
-            <div class="teams">
-              <div class="team a">
-                <div class="team-name">${escapeHtml(s.team_a_name)}</div>
-                <div class="score">${s.score_a}</div>
-              </div>
-              <div class="team b">
-                <div class="team-name">${escapeHtml(s.team_b_name)}</div>
-                <div class="score">${s.score_b}</div>
-              </div>
-            </div>
-            <div style="text-align:center; color:${st.color}; font-weight:700;">${st.text}</div>
-            ${s.youtube_url ? `<a class="yt-btn" href="${escapeHtml(s.youtube_url)}" target="_blank">▶ Ver transmisión en YouTube</a>` : ""}
+        <div class="ts-board">
+          <div class="ts-head">
+            <span>${escapeHtml(s.label)}</span>
+            <span class="ts-live"><span class="ts-dot"></span>EN VIVO</span>
           </div>
+          <div class="ts-row a">
+            <span class="ts-serve${s.server === "A" ? " active" : ""}"></span>
+            <span class="ts-name">${escapeHtml(s.team_a_name)}</span>
+            ${usesSets ? `<span class="ts-sets">${renderSetHistory(s, "a")}</span>` : ""}
+            <span class="ts-current">${s.score_a}</span>
+          </div>
+          <div class="ts-row b">
+            <span class="ts-serve${s.server === "B" ? " active" : ""}"></span>
+            <span class="ts-name">${escapeHtml(s.team_b_name)}</span>
+            ${usesSets ? `<span class="ts-sets">${renderSetHistory(s, "b")}</span>` : ""}
+            <span class="ts-current">${s.score_b}</span>
+          </div>
+          <div class="ts-foot">
+            <span class="ts-setstatus" style="color:${st.color};">${st.text}</span>
+          </div>
+          ${s.youtube_url ? `<a class="yt-btn" href="${escapeHtml(s.youtube_url)}" target="_blank">▶ Ver transmisión en YouTube</a>` : ""}
         </div>
       `;
     }).join("");

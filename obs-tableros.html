@@ -19,49 +19,64 @@
     gap: 28px; padding: 16px;
   }
 
-  /* ---------- Tablero 1: Display (marcador en vivo) ----------
-     Copia exacta de display.html, solo que los ids de adentro llevan
-     el prefijo "d-" para no chocar con los del tablero de pausa. */
-  .scoreboard {
-    background: rgba(11, 19, 32, 0.88);
-    border-radius: 16px; padding: 14px 18px;
-    border: 2px solid #3fa9f5; box-shadow: 0 0 30px rgba(0, 0, 0, 0.6);
-    min-width: 380px;
+  /* ---------- Tablero 1: Display (marcador en vivo, estilo tenis) ----------
+     Misma familia visual que display.html, con ids prefijados "d-"
+     para no chocar con los del tablero de pausa. */
+  .ts-board {
+    background: rgba(11, 19, 32, 0.94); border-radius: 10px; overflow: hidden;
+    border: 1px solid #3a4256; min-width: 380px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
   }
-  .scoreboard .top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-  .scoreboard .club-logo { width: 42px; height: 42px; object-fit: cover; border-radius: 8px; flex-shrink: 0; }
-  .scoreboard .title h1 { margin: 0; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 1.5px; }
-  .scoreboard .title h3 { margin: 2px 0 0; font-weight: 400; font-size: 0.7rem; color: #bcc4d1; }
-  .scoreboard .status-line { margin-left: auto; text-align: right; }
-  #d-matchStatus { font-size: 0.85rem; font-weight: 700; }
-  #d-timerDisplay { font-size: 0.85rem; color: #bcc4d1; font-variant-numeric: tabular-nums; }
-
-  .scoreboard .teams { display: flex; gap: 10px; }
-  .scoreboard .team {
-    flex: 1; background: rgba(34, 43, 58, 0.9); border-radius: 12px;
-    padding: 8px 10px; text-align: center; border: 2px solid #3fa9f5; min-width: 120px;
+  .ts-head {
+    display: flex; align-items: center; justify-content: space-between;
+    background: #131a27; padding: 7px 14px; font-size: 0.7rem; color: #8a94a6;
+    letter-spacing: 1px; text-transform: uppercase; border-bottom: 1px solid #232c3d;
   }
-  .scoreboard .team.a { border-color: #ff4b4b; }
-  .scoreboard .team.b { border-color: #3fa9f5; }
+  .ts-head-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .ts-logo { width: 20px; height: 20px; border-radius: 4px; object-fit: cover; flex-shrink: 0; }
+  .ts-head-left span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ts-live { color: #ff4b4b; font-weight: 800; display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+  .ts-dot { width: 6px; height: 6px; border-radius: 50%; background: #ff4b4b; animation: tsPulse 1.2s infinite; }
+  @keyframes tsPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
-  .scoreboard .team-name {
-    font-size: 0.85rem; font-weight: 700; display: flex; align-items: center;
-    justify-content: center; gap: 6px; margin-bottom: 2px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  .ts-row {
+    display: flex; align-items: center; padding: 10px 14px; gap: 10px;
+    border-bottom: 1px solid #1c2433;
   }
-
-  .scoreboard .server-ball {
-    width: 10px; height: 10px; border-radius: 50%;
+  .ts-row:last-of-type { border-bottom: none; }
+  .ts-serve {
+    width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
     background: radial-gradient(circle at 35% 30%, #fbff5c, #d7d400 75%);
     box-shadow: 0 0 6px rgba(255, 247, 0, 0.85);
     opacity: 0; transform: scale(0.4);
     transition: opacity 0.2s ease, transform 0.2s ease;
-    flex-shrink: 0;
   }
-  .scoreboard .server-ball.active { opacity: 1; transform: scale(1); animation: bounce 1.4s ease-in-out infinite; }
-  @keyframes bounce { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-2px) scale(1); } }
+  .ts-serve.active { opacity: 1; transform: scale(1); animation: tsBounce 1.4s ease-in-out infinite; }
+  @keyframes tsBounce { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-2px) scale(1); } }
 
-  .scoreboard .score { font-size: 2.6rem; font-weight: bold; line-height: 1; font-variant-numeric: tabular-nums; }
+  .ts-name {
+    flex: 1; font-weight: 700; font-size: 0.95rem; min-width: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .ts-sets { display: flex; gap: 6px; flex-shrink: 0; }
+  .ts-set {
+    width: 26px; text-align: center; font-size: 0.85rem; color: #8a94a6;
+    font-variant-numeric: tabular-nums;
+  }
+  .ts-set.won { color: #fff; font-weight: 700; }
+  .ts-current {
+    width: 44px; height: 36px; display: flex; align-items: center; justify-content: center;
+    background: #3fa9f5; color: #0b1320; font-weight: 900; font-size: 1.35rem; border-radius: 7px;
+    font-variant-numeric: tabular-nums; flex-shrink: 0;
+  }
+  .ts-row.b .ts-current { background: #ff4b4b; }
+
+  .ts-foot {
+    display: flex; align-items: center; justify-content: space-between;
+    background: #131a27; padding: 6px 14px; font-size: 0.74rem; color: #8a94a6;
+    border-top: 1px solid #232c3d;
+  }
+  .ts-setstatus { font-weight: 700; color: #ffcc00; }
+  .ts-timer { font-variant-numeric: tabular-nums; }
 
   /* ---------- Tablero 2: Pausa (tarjeta de resultado) ----------
      Copia de pausa.html, con ids prefijados "p-". */
@@ -163,28 +178,30 @@
 </head>
 <body>
 
-  <!-- Tablero 1: marcador en vivo (igual a display.html) -->
-  <div class="scoreboard" id="scoreboard">
-    <div class="top">
-      <img class="club-logo" src="logo.png" alt="" />
-      <div class="title">
-        <h1 id="d-matchLabel">Trinquete Francisco García</h1>
-        <h3>Racing Club TW</h3>
-      </div>
-      <div class="status-line">
-        <div id="d-matchStatus">En juego</div>
-        <div id="d-timerDisplay">00:00</div>
-      </div>
+  <!-- Tablero 1: marcador en vivo (igual a display.html, estilo tenis) -->
+  <div class="ts-board" id="scoreboard">
+    <div class="ts-head">
+      <span class="ts-head-left">
+        <img class="ts-logo" src="logo.png" alt="" />
+        <span id="d-matchLabel">Trinquete Francisco García</span>
+      </span>
+      <span class="ts-live" id="d-liveBadge"><span class="ts-dot"></span>EN VIVO</span>
     </div>
-    <div class="teams">
-      <div class="team a">
-        <div class="team-name"><span id="d-nameA">Local</span><span class="server-ball" id="d-ballA"></span></div>
-        <div class="score" id="d-scoreA">0</div>
-      </div>
-      <div class="team b">
-        <div class="team-name"><span id="d-nameB">Visitante</span><span class="server-ball" id="d-ballB"></span></div>
-        <div class="score" id="d-scoreB">0</div>
-      </div>
+    <div class="ts-row a" id="d-rowA">
+      <span class="ts-serve" id="d-ballA"></span>
+      <span class="ts-name" id="d-nameA">Local</span>
+      <span class="ts-sets" id="d-setsA"></span>
+      <span class="ts-current" id="d-scoreA">0</span>
+    </div>
+    <div class="ts-row b" id="d-rowB">
+      <span class="ts-serve" id="d-ballB"></span>
+      <span class="ts-name" id="d-nameB">Visitante</span>
+      <span class="ts-sets" id="d-setsB"></span>
+      <span class="ts-current" id="d-scoreB">0</span>
+    </div>
+    <div class="ts-foot">
+      <span class="ts-setstatus" id="d-matchStatus">En juego</span>
+      <span class="ts-timer" id="d-timerDisplay">00:00</span>
     </div>
   </div>
 
@@ -248,6 +265,7 @@
     label: "Partido", team_a_name: "Local", team_b_name: "Visitante", score_a: 0, score_b: 0,
     server: null, max_points: 30, match_status: "playing",
     timer_accumulated: 0, timer_running_since: null,
+    sets_to_win: 1, sets_a: 0, sets_b: 0, current_set: 1, set_history: [],
   };
   let currentState = { ...defaultState };
 
@@ -290,6 +308,19 @@
     return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   }
 
+  // Arma las cajitas chicas de sets ya jugados para un lado ("a" o "b"),
+  // a partir de set_history: [{set, score_a, score_b}, ...]
+  function renderSetHistory(elId, side) {
+    const history = currentState.set_history || [];
+    const el = document.getElementById(elId);
+    el.innerHTML = history.map((h) => {
+      const mine = side === "a" ? h.score_a : h.score_b;
+      const other = side === "a" ? h.score_b : h.score_a;
+      const won = mine > other;
+      return `<span class="ts-set${won ? " won" : ""}">${mine}</span>`;
+    }).join("");
+  }
+
   function render() {
     const s = currentState;
 
@@ -302,10 +333,27 @@
     document.getElementById("d-ballA").classList.toggle("active", s.server === "A");
     document.getElementById("d-ballB").classList.toggle("active", s.server === "B");
 
+    const setsToWin = s.sets_to_win || 1;
+    document.getElementById("d-setsA").style.display = setsToWin > 1 ? "flex" : "none";
+    document.getElementById("d-setsB").style.display = setsToWin > 1 ? "flex" : "none";
+    if (setsToWin > 1) {
+      renderSetHistory("d-setsA", "a");
+      renderSetHistory("d-setsB", "b");
+    }
+
+    const dLiveBadge = document.getElementById("d-liveBadge");
     const dStatusEl = document.getElementById("d-matchStatus");
-    if (s.match_status === "A") { dStatusEl.textContent = `Ganó ${s.team_a_name}`; dStatusEl.style.color = "#ff4b4b"; }
-    else if (s.match_status === "B") { dStatusEl.textContent = `Ganó ${s.team_b_name}`; dStatusEl.style.color = "#3fa9f5"; }
-    else { dStatusEl.textContent = "En juego"; dStatusEl.style.color = "#fff"; }
+    if (s.match_status === "A") {
+      dLiveBadge.style.display = "none";
+      dStatusEl.textContent = `Ganó ${s.team_a_name}`; dStatusEl.style.color = "#ff4b4b";
+    } else if (s.match_status === "B") {
+      dLiveBadge.style.display = "none";
+      dStatusEl.textContent = `Ganó ${s.team_b_name}`; dStatusEl.style.color = "#3fa9f5";
+    } else {
+      dLiveBadge.style.display = "flex";
+      dStatusEl.style.color = "#ffcc00";
+      dStatusEl.textContent = setsToWin > 1 ? `Set ${s.current_set || 1} en juego` : "En juego";
+    }
 
     document.getElementById("d-timerDisplay").textContent = formatTime(computeTimerSeconds());
 

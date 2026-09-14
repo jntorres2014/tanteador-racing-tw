@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>Mockup — Marcador con estilo tenis</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #0b1320; color: #fff;
+  }
+  body { padding: 28px 20px 60px; }
+  .intro { max-width: 720px; margin: 0 auto 36px; text-align: center; }
+  .intro h1 { font-size: 1.3rem; margin-bottom: 8px; }
+  .intro p { color: #bcc4d1; font-size: 0.9rem; line-height: 1.5; }
+
+  .option {
+    max-width: 720px; margin: 0 auto 48px;
+  }
+  .option-label {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 14px;
+  }
+  .option-badge {
+    background: #3fa9f5; color: #0b1320; font-weight: 800; font-size: 0.75rem;
+    width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  }
+  .option-label h2 { font-size: 1rem; margin: 0; }
+  .option-desc { color: #8a94a6; font-size: 0.8rem; margin: 2px 0 0 36px; }
+
+  .stage {
+    background: repeating-conic-gradient(#131a27 0% 25%, #10161f 0% 50%) 50% / 24px 24px;
+    border-radius: 16px; padding: 30px 20px; display: flex; justify-content: center;
+    border: 1px solid #232c3d;
+  }
+
+  /* ============ OPCION A: broadcast clasico (barra horizontal, columnas de sets) ============ */
+  .bcast {
+    background: rgba(11, 19, 32, 0.94); border-radius: 10px; overflow: hidden;
+    border: 1px solid #3a4256; min-width: 460px; box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  }
+  .bcast-head {
+    display: flex; align-items: center; justify-content: space-between;
+    background: #131a27; padding: 6px 14px; font-size: 0.68rem; color: #8a94a6;
+    letter-spacing: 1px; text-transform: uppercase; border-bottom: 1px solid #232c3d;
+  }
+  .bcast-head .live { color: #ff4b4b; font-weight: 800; display:flex; align-items:center; gap:5px; }
+  .bcast-head .dot { width:6px; height:6px; border-radius:50%; background:#ff4b4b; animation: pulse 1.2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.3;} }
+  .bcast-row {
+    display: flex; align-items: center; padding: 9px 14px; gap: 10px;
+    border-bottom: 1px solid #1c2433;
+  }
+  .bcast-row:last-child { border-bottom: none; }
+  .bcast-serve {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    background: radial-gradient(circle at 35% 30%, #fbff5c, #d7d400 75%);
+    box-shadow: 0 0 6px rgba(255,247,0,.85); visibility: hidden;
+  }
+  .bcast-row.serving .bcast-serve { visibility: visible; }
+  .bcast-name { flex: 1; font-weight: 700; font-size: 0.92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bcast-sets { display: flex; gap: 6px; }
+  .bcast-set {
+    width: 30px; text-align: center; font-size: 0.85rem; color: #8a94a6; font-variant-numeric: tabular-nums;
+  }
+  .bcast-set.won { color: #fff; font-weight: 700; }
+  .bcast-current {
+    width: 44px; height: 34px; display: flex; align-items: center; justify-content: center;
+    background: #3fa9f5; color: #0b1320; font-weight: 900; font-size: 1.3rem; border-radius: 6px;
+    font-variant-numeric: tabular-nums;
+  }
+  .bcast-row.b .bcast-current { background: #ff4b4b; }
+
+  /* ============ OPCION B: tarjeta con pills de sets ============ */
+  .cardb {
+    background: linear-gradient(180deg, #1b2433 0%, #141b28 100%);
+    border-radius: 20px; padding: 20px 22px; border: 2px solid #3fa9f5;
+    min-width: 420px; box-shadow: 0 0 40px rgba(63,169,245,0.15), 0 18px 50px rgba(0,0,0,0.5);
+  }
+  .cardb-top { display:flex; align-items:center; justify-content:space-between; margin-bottom: 14px;}
+  .cardb-title { font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #bcc4d1; }
+  .cardb-timer { font-size: 0.8rem; color: #8a94a6; font-variant-numeric: tabular-nums; }
+  .cardb-team { display: flex; align-items: center; gap: 12px; padding: 10px 0; }
+  .cardb-team + .cardb-team { border-top: 1px solid #2a3344; }
+  .cardb-serve {
+    width: 9px; height: 9px; border-radius: 50%; flex-shrink:0;
+    background: radial-gradient(circle at 35% 30%, #fbff5c, #d7d400 75%);
+    box-shadow: 0 0 6px rgba(255,247,0,.85); visibility:hidden;
+  }
+  .cardb-team.serving .cardb-serve { visibility: visible; }
+  .cardb-name { flex: 1; font-weight: 800; font-size: 1.05rem; }
+  .cardb-team.a .cardb-name { color: #ff8a8a; }
+  .cardb-team.b .cardb-name { color: #8ecdfb; }
+  .cardb-pills { display: flex; gap: 5px; }
+  .cardb-pill {
+    min-width: 22px; height: 22px; padding: 0 4px; border-radius: 6px; background: #232c3d;
+    display: flex; align-items: center; justify-content: center; font-size: 0.75rem; color: #8a94a6;
+    font-variant-numeric: tabular-nums; font-weight: 700;
+  }
+  .cardb-pill.won { background: #3fd976; color: #0b1320; }
+  .cardb-score { font-size: 2rem; font-weight: 900; font-variant-numeric: tabular-nums; min-width: 44px; text-align: right; }
+  .cardb-foot { text-align: center; margin-top: 14px; font-size: 0.75rem; color: #8a94a6; }
+
+  /* ============ OPCION C: minimalista, marcador grande + tira de sets abajo ============ */
+  .cardc { min-width: 400px; text-align: center; }
+  .cardc-names { display: flex; align-items: center; justify-content: center; gap: 18px; margin-bottom: 6px; }
+  .cardc-name { font-size: 1rem; font-weight: 700; }
+  .cardc-name.a { color: #ff8a8a; }
+  .cardc-name.b { color: #8ecdfb; }
+  .cardc-vs { color: #576079; font-size: 0.8rem; font-weight: 700; }
+  .cardc-score {
+    display: flex; align-items: center; justify-content: center; gap: 20px;
+    font-size: 3.6rem; font-weight: 900; font-variant-numeric: tabular-nums; line-height: 1;
+    text-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  }
+  .cardc-score .a { color: #ff4b4b; }
+  .cardc-score .b { color: #3fa9f5; }
+  .cardc-score .sep { color: #3a4256; font-size: 2rem; }
+  .cardc-strip { display: flex; justify-content: center; gap: 8px; margin-top: 16px; }
+  .cardc-setbox {
+    background: #1b2433; border: 1px solid #3a4256; border-radius: 8px;
+    padding: 6px 10px; font-size: 0.78rem; color: #8a94a6; font-variant-numeric: tabular-nums;
+  }
+  .cardc-setbox b { color: #fff; }
+  .cardc-setbox.current { border-color: #ffcc00; color: #ffcc00; }
+  .cardc-setbox.current b { color: #ffcc00; }
+
+  .pick {
+    max-width: 720px; margin: 0 auto; text-align: center; padding: 18px;
+    background: #1b2433; border-radius: 14px; border: 1px solid #3a4256; color: #bcc4d1; font-size: 0.85rem;
+  }
+
+  .bcast-foot {
+    display: flex; align-items: center; justify-content: space-between;
+    background: #131a27; padding: 6px 14px; font-size: 0.72rem; color: #8a94a6;
+    border-top: 1px solid #232c3d;
+  }
+  .bcast-foot .set-status { color: #ffcc00; font-weight: 700; }
+  .bcast-foot .timer { font-variant-numeric: tabular-nums; }
+
+  .final-label {
+    display: inline-flex; align-items: center; gap: 8px; background: rgba(63,217,118,0.14);
+    border: 1px solid rgba(63,217,118,0.35); color: #3fd976; padding: 5px 14px; border-radius: 999px;
+    font-size: 0.75rem; font-weight: 700; margin-bottom: 14px;
+  }
+</style>
+</head>
+<body>
+
+<div class="intro">
+  <h1>Marcador con sets — estilo tenis</h1>
+  <p>3 opciones de cómo mostrar el historial de sets junto al marcador en vivo (OBS / live.html). Datos de ejemplo: Set 1 ganado 6-4, Set 2 ganado 3-6, Set 3 en juego 2-1, sacando el equipo A.</p>
+</div>
+
+<!-- COMBINACION ELEGIDA: layout de A + "Set N en juego" y timer como B -->
+<div class="option">
+  <div class="option-label"><div class="option-badge">✓</div><h2>Elegida: A + "set en juego" + timer</h2></div>
+  <div class="option-desc">El mismo diseño compacto de A, con una franja abajo mostrando "Set 3 en juego" y el cronómetro del partido, igual que tenía la tarjeta B.</div>
+  <div class="stage" style="margin-top:14px;">
+    <div class="bcast">
+      <div class="bcast-head"><span>Cuartos · Primera</span><span class="live"><span class="dot"></span>EN VIVO</span></div>
+      <div class="bcast-row a serving">
+        <span class="bcast-serve"></span>
+        <span class="bcast-name">Real / Gómez</span>
+        <span class="bcast-sets"><span class="bcast-set won">6</span><span class="bcast-set">3</span></span>
+        <span class="bcast-current">2</span>
+      </div>
+      <div class="bcast-row b">
+        <span class="bcast-serve"></span>
+        <span class="bcast-name">Cirilo / García</span>
+        <span class="bcast-sets"><span class="bcast-set">4</span><span class="bcast-set won">6</span></span>
+        <span class="bcast-current">1</span>
+      </div>
+      <div class="bcast-foot"><span class="set-status">Set 3 en juego</span><span class="timer">⏱ 24:10</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- OPCION A -->
+<div class="option">
+  <div class="option-label"><div class="option-badge">A</div><h2>Broadcast clásico</h2></div>
+  <div class="option-desc">Como la franja inferior de una transmisión de tenis: cada set en su columna, el set en juego destacado en un cuadrado de color. Compacto, ideal para OBS.</div>
+  <div class="stage" style="margin-top:14px;">
+    <div class="bcast">
+      <div class="bcast-head"><span>Cuartos · Primera</span><span class="live"><span class="dot"></span>EN VIVO</span></div>
+      <div class="bcast-row a serving">
+        <span class="bcast-serve"></span>
+        <span class="bcast-name">Real / Gómez</span>
+        <span class="bcast-sets"><span class="bcast-set won">6</span><span class="bcast-set">3</span></span>
+        <span class="bcast-current">2</span>
+      </div>
+      <div class="bcast-row b">
+        <span class="bcast-serve"></span>
+        <span class="bcast-name">Cirilo / García</span>
+        <span class="bcast-sets"><span class="bcast-set">4</span><span class="bcast-set won">6</span></span>
+        <span class="bcast-current">1</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- OPCION B -->
+<div class="option">
+  <div class="option-label"><div class="option-badge">B</div><h2>Tarjeta con pills de sets</h2></div>
+  <div class="option-desc">Mantiene el estilo de tarjeta grande que ya usa la app hoy, pero con los sets como una fila de "pastillas" (verde = set ganado) en vez del texto chico actual.</div>
+  <div class="stage" style="margin-top:14px;">
+    <div class="cardb">
+      <div class="cardb-top"><span class="cardb-title">Cuartos · Primera</span><span class="cardb-timer">⏱ 24:10</span></div>
+      <div class="cardb-team a serving">
+        <span class="cardb-serve"></span>
+        <span class="cardb-name">Real / Gómez</span>
+        <span class="cardb-pills"><span class="cardb-pill won">6</span><span class="cardb-pill">3</span></span>
+        <span class="cardb-score">2</span>
+      </div>
+      <div class="cardb-team b">
+        <span class="cardb-serve"></span>
+        <span class="cardb-name">Cirilo / García</span>
+        <span class="cardb-pills"><span class="cardb-pill">4</span><span class="cardb-pill won">6</span></span>
+        <span class="cardb-score">1</span>
+      </div>
+      <div class="cardb-foot">Set 3 en juego</div>
+    </div>
+  </div>
+</div>
+
+<!-- OPCION C -->
+<div class="option">
+  <div class="option-label"><div class="option-badge">C</div><h2>Minimalista, número grande + tira de sets</h2></div>
+  <div class="option-desc">El puntaje del set actual bien grande y protagonista (como hoy), con una tira chica de "cajitas" abajo mostrando el resultado de cada set jugado.</div>
+  <div class="stage" style="margin-top:14px;">
+    <div class="cardc">
+      <div class="cardc-names">
+        <span class="cardc-name a">Real / Gómez</span>
+        <span class="cardc-vs">VS</span>
+        <span class="cardc-name b">Cirilo / García</span>
+      </div>
+      <div class="cardc-score"><span class="a">2</span><span class="sep">–</span><span class="b">1</span></div>
+      <div class="cardc-strip">
+        <div class="cardc-setbox">Set 1: <b>6-4</b></div>
+        <div class="cardc-setbox">Set 2: <b>3-6</b></div>
+        <div class="cardc-setbox current">Set 3: <b>2-1</b></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="pick">
+  Decime "A", "B" o "C" (o una mezcla, tipo "el layout de A pero con los colores de B") y armo la versión final para <code>display.html</code>, <code>obs-tableros.html</code>, <code>obs-cancha.html</code> y <code>live.html</code>.
+</div>
+
+</body>
+</html>
