@@ -231,14 +231,27 @@
   async function init() {
     await refresh();
 
+    // Dos canales separados (no uno solo con dos tablas): si "tournaments"
+    // no esta habilitada para tiempo real en Supabase (o se deshabilita
+    // en el futuro), que falle SOLO esa suscripcion y no tumbe tambien la
+    // de "matches", que es la que importa segundo a segundo.
     client
-      .channel("obs-cancha-" + courtName)
+      .channel("obs-cancha-matches-" + courtName)
       .on("postgres_changes", { event: "*", schema: "public", table: "matches" }, () => refresh())
-      .on("postgres_changes", { event: "*", schema: "public", table: "tournaments" }, () => refresh())
       .subscribe((status) => {
         if (status !== "SUBSCRIBED") showMsg("Sin conexión con el servidor de datos");
         else if (currentMode) showMsg(null);
       });
+
+    client
+      .channel("obs-cancha-tournaments-" + courtName)
+      .on("postgres_changes", { event: "*", schema: "public", table: "tournaments" }, () => refresh())
+      .subscribe();
+
+    // Red de seguridad: aunque el socket de tiempo real falle en
+    // silencio por cualquier motivo, esto asegura que la pagina nunca
+    // quede mas de 20 segundos mostrando datos viejos.
+    setInterval(refresh, 20000);
   }
 
   // Busca el torneo activo (en curso, o publicado si ninguno esta en
