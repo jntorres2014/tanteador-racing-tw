@@ -30,17 +30,16 @@
 // falta debuggear.
 // ============================================================
 
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.116.0";
 import webpush from "npm:web-push@3.6.7";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const VAPID_PUBLIC_KEY = Deno.env.get("VAPID_PUBLIC_KEY")!;
 const VAPID_PRIVATE_KEY = Deno.env.get("VAPID_PRIVATE_KEY")!;
-// Opcional: si configurás un header personalizado "x-webhook-secret" en
-// el Database Webhook con este mismo valor, la funcion lo valida antes
-// de hacer nada. Si no configurás el secreto, este chequeo se saltea.
-const WEBHOOK_SECRET = Deno.env.get("MATCH_WEBHOOK_SECRET") || "";
+// Obligatorio: el Database Webhook debe enviar el mismo valor en
+// "x-webhook-secret". Si falta la configuracion, la funcion falla cerrada.
+const WEBHOOK_SECRET = Deno.env.get("MATCH_WEBHOOK_SECRET");
 
 webpush.setVapidDetails("mailto:jntorres2014@gmail.com", VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 
@@ -122,11 +121,16 @@ async function processMilestone(admin, m, flagColumn, title, bodyText) {
 
 Deno.serve(async (req) => {
   try {
-    if (WEBHOOK_SECRET) {
-      const got = req.headers.get("x-webhook-secret") || "";
-      if (got !== WEBHOOK_SECRET) {
-        return new Response(JSON.stringify({ error: "secreto invalido" }), { status: 401 });
-      }
+    if (req.method !== "POST") {
+      return new Response(JSON.stringify({ error: "metodo no permitido" }), { status: 405 });
+    }
+    if (!WEBHOOK_SECRET) {
+      console.error("Falta configurar MATCH_WEBHOOK_SECRET");
+      return new Response(JSON.stringify({ error: "configuracion incompleta" }), { status: 500 });
+    }
+    const got = req.headers.get("x-webhook-secret") || "";
+    if (got !== WEBHOOK_SECRET) {
+      return new Response(JSON.stringify({ error: "no autorizado" }), { status: 401 });
     }
 
     const payload = await req.json().catch(() => ({}));

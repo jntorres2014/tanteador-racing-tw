@@ -216,7 +216,7 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="supabase-config.js"></script>
 <script src="ui-alert.js"></script>
@@ -515,12 +515,13 @@
     const listEl = document.getElementById("playersResolveList");
     listEl.innerHTML = keys.map(key => {
       const r = resolutions[key];
+      const encodedKey = encodeUiKey(key);
       if (r.status === "existing") {
         return `
           <div class="resolve-item ok">
             <div class="resolve-ok-line">
               <span>✓ "${escapeHtmlLocal(r.apellidoRaw)}" es <strong>${escapeHtmlLocal(r.label)}</strong> — ya está en tu base</span>
-              <button class="btn-link" onclick="resolverBuscarOtro('${key}')">¿No es esta persona? Buscar otro</button>
+              <button class="btn-link" onclick="resolverBuscarOtro(decodeUiKey('${encodedKey}'))">¿No es esta persona? Buscar otro</button>
             </div>
           </div>`;
       }
@@ -529,13 +530,13 @@
           <div class="resolve-item new">
             <div class="resolve-new-line">
               <span>+ "${escapeHtmlLocal(r.apellidoRaw)}" se va a crear como jugador nuevo</span>
-              <button class="btn-link" onclick="resolverBuscarOtro('${key}')">Deshacer</button>
+              <button class="btn-link" onclick="resolverBuscarOtro(decodeUiKey('${encodedKey}'))">Deshacer</button>
             </div>
           </div>`;
       }
       // pending
       const candidatesHtml = (r.candidates || []).map(c => `
-        <button class="btn-candidate" onclick="resolverElegirExistente('${key}', '${c.id}', '${escapeHtmlLocal(personLabel(c)).replace(/'/g, "&#39;")}')">
+        <button class="btn-candidate" onclick="resolverElegirExistente(decodeUiKey('${encodedKey}'), '${c.id}')">
           Es ${escapeHtmlLocal(personLabel(c))} <span class="muted">— ya está en tu base</span>
         </button>
       `).join("");
@@ -546,11 +547,11 @@
             ? `<div class="resolve-sub">${r.candidates.length > 1 ? "Hay más de uno con ese apellido en tu base. ¿Cuál es?" : "¿Es esta persona?"}</div><div class="resolve-candidates">${candidatesHtml}</div>`
             : `<div class="resolve-sub">No está en tu base con ese apellido.</div>`}
           <div class="resolve-search-row">
-            <input type="text" id="search-${key}" list="allPlayersDatalist" placeholder="Buscar otro jugador por apellido..." />
-            <button class="btn-secondary btn-small" onclick="resolverConfirmarBusqueda('${key}')">Usar este</button>
+            <input type="text" id="search-${escapeHtmlLocal(key)}" list="allPlayersDatalist" placeholder="Buscar otro jugador por apellido..." />
+            <button class="btn-secondary btn-small" onclick="resolverConfirmarBusqueda(decodeUiKey('${encodedKey}'))">Usar este</button>
           </div>
           <div style="margin-top:8px;">
-            <button class="btn-link" onclick="resolverCrearNuevo('${key}')">Es un jugador nuevo, dar de alta</button>
+            <button class="btn-link" onclick="resolverCrearNuevo(decodeUiKey('${encodedKey}'))">Es un jugador nuevo, dar de alta</button>
           </div>
         </div>`;
     }).join("") + `<datalist id="allPlayersDatalist">${allPlayersFull.map(p => `<option value="${escapeHtmlLocal(p.displayName)}">`).join("")}</datalist>`;
@@ -558,7 +559,9 @@
     updateImportButtonState();
   }
 
-  function resolverElegirExistente(key, playerId, label) {
+  function resolverElegirExistente(key, playerId) {
+    const selected = allPlayersFull.find(p => p.id === playerId);
+    const label = selected ? personLabel(selected) : "";
     resolutions[key] = { ...resolutions[key], status: "existing", playerId, label, auto: false };
     renderPlayersResolve();
   }
@@ -589,11 +592,21 @@
       showAlert(`Hay más de un jugador que coincide con "${typed}". Escribí el nombre completo para distinguirlos.`, { type: "warn" });
       return;
     }
-    resolverElegirExistente(key, found[0].id, personLabel(found[0]));
+    resolverElegirExistente(key, found[0].id);
   }
 
   function escapeHtmlLocal(s) {
     return String(s || "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+  }
+
+  // Los identificadores derivados del Excel nunca se insertan crudos
+  // dentro de un manejador onclick.
+  function encodeUiKey(value) {
+    return encodeURIComponent(String(value)).replace(/'/g, "%27");
+  }
+
+  function decodeUiKey(value) {
+    return decodeURIComponent(value);
   }
 
   function updateImportButtonState() {
@@ -664,7 +677,7 @@
       warningsCard.classList.remove("hidden");
       document.getElementById("warningsList").innerHTML = visibleWarnings.map(w => {
         const isHard = ["referencia_invalida", "referencia_circular", "nombre_no_separable"].includes(w.type);
-        return `<div class="warning-item ${isHard ? "err" : "warn"}">${isHard ? "🚫" : "⚠️"} ${w.detail}</div>`;
+        return `<div class="warning-item ${isHard ? "err" : "warn"}">${isHard ? "🚫" : "⚠️"} ${escapeHtmlLocal(w.detail)}</div>`;
       }).join("");
     } else {
       warningsCard.classList.add("hidden");
@@ -673,10 +686,10 @@
     document.getElementById("matchesTableBody").innerHTML = matches.map(m => `
       <tr>
         <td>${m.matchNumber}</td>
-        <td>${m.categoria}</td>
-        <td>${sideLabel(m.sideA)}</td>
+        <td>${escapeHtmlLocal(m.categoria)}</td>
+        <td>${escapeHtmlLocal(sideLabel(m.sideA))}</td>
         <td style="color:#8a94a6;">vs</td>
-        <td>${sideLabel(m.sideB)}</td>
+        <td>${escapeHtmlLocal(sideLabel(m.sideB))}</td>
       </tr>
     `).join("");
 

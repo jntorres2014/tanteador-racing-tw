@@ -34,12 +34,17 @@ Supabase Dashboard -> SQL Editor -> New query -> Run.
 Push a `main` -> Cloudflare redeploya solo en menos de un minuto.
 No hay ambiente de staging: lo que se pushea sale en vivo.
 
-## Limitaciones conocidas
+## Seguridad y despliegue
 
-- **El PIN no es seguridad.** Vive en `supabase-config.js`, que se sirve al
-  navegador y se lee con Ctrl+U. Solo evita toques accidentales.
-- **La RLS de `matches` es abierta** (`using(true)` en select/insert/update).
-  Cualquiera con la anon key puede editar cualquier partido. Aceptable mientras
-  el uso sea de un club conocido; hay que cerrarlo antes de abrirlo mas.
-- `is_finished` no guarda una fecha propia de finalizacion; el historial ordena
-  por `updated_at`.
+- La clave publica de Supabase se sirve al navegador por diseño; los permisos
+  reales se controlan con RLS y funciones autorizadas.
+- Para una instalacion nueva, ejecutar todas las migraciones de `db/` en orden,
+  incluida `018-security-hardening.sql`.
+- Antes de desplegar `notify-match-queue`, configurar
+  `MATCH_WEBHOOK_SECRET` y enviar el mismo valor desde el Database Webhook.
+- Los cambios deben entrar por pull request y pasar `Security checks` antes de
+  fusionarse con `main`.
+- La finalizacion de partidos no tiene fallback directo: si la operacion segura
+  falla, el marcador conserva el ultimo estado confirmado y muestra el error.
+
+Ver `SECURITY-DEPLOY.md` para la verificacion posterior al despliegue.

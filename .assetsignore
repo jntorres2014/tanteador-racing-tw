@@ -1,0 +1,12 @@
+.git/
+.github/
+Claude outputs/
+db/
+supabase/
+*.md
+*.xlsx
+*.xls
+*.sql
+*.py
+.env
+.env.*
