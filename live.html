@@ -96,7 +96,7 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
 <script src="supabase-config.js"></script>
 <script>
   const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -124,6 +124,22 @@
     return { text: setsToWin > 1 ? `Set ${s.current_set || 1} en juego` : "En juego", color: "#ffcc00" };
   }
 
+  function safeYouTubeUrl(raw) {
+    if (!raw) return null;
+    try {
+      const url = new URL(raw);
+      const host = url.hostname.toLowerCase();
+      const allowedHost = host === "youtu.be"
+        || host === "youtube.com"
+        || host.endsWith(".youtube.com")
+        || host === "youtube-nocookie.com"
+        || host.endsWith(".youtube-nocookie.com");
+      return url.protocol === "https:" && allowedHost ? url.href : null;
+    } catch (_error) {
+      return null;
+    }
+  }
+
   function render(matches) {
     const list = document.getElementById("liveList");
     const offline = document.getElementById("offlineSection");
@@ -138,6 +154,7 @@
     list.innerHTML = matches.map((s) => {
       const usesSets = (s.sets_to_win || 1) > 1;
       const st = footStatus(s);
+      const youtubeUrl = safeYouTubeUrl(s.youtube_url);
       return `
         <div class="ts-board">
           <div class="ts-head">
@@ -159,7 +176,7 @@
           <div class="ts-foot">
             <span class="ts-setstatus" style="color:${st.color};">${st.text}</span>
           </div>
-          ${s.youtube_url ? `<a class="yt-btn" href="${escapeHtml(s.youtube_url)}" target="_blank">▶ Ver transmisión en YouTube</a>` : ""}
+          ${youtubeUrl ? `<a class="yt-btn" href="${escapeHtml(youtubeUrl)}" target="_blank" rel="noopener noreferrer">▶ Ver transmisión en YouTube</a>` : ""}
         </div>
       `;
     }).join("");

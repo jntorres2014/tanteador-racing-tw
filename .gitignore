@@ -3,3 +3,16 @@ Thumbs.db
 node_modules/
 .wrangler/
 *.log
+
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+supabase/.temp/
+Claude outputs/
+*.xlsx
+*.xls
+db/seed.sql

@@ -211,7 +211,7 @@
   <div id="content"><div class="empty">Cargando...</div></div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
 <script src="supabase-config.js"></script>
 <script src="push-config.js"></script>
 <script src="ui-alert.js"></script>
@@ -295,18 +295,15 @@
     try {
       const subscription = await getOrCreatePushSubscription();
       const json = subscription.toJSON();
-      const { error } = await client.from("push_subscriptions").insert({
-        pair_id: pairId,
-        endpoint: json.endpoint,
-        p256dh: json.keys.p256dh,
-        auth: json.keys.auth,
+      const { error } = await client.rpc("register_push_subscription", {
+        p_pair_id: pairId,
+        p_endpoint: json.endpoint,
+        p_p256dh: json.keys.p256dh,
+        p_auth: json.keys.auth,
       });
-      // Si ya estaba suscripto (mismo navegador, misma pareja), Postgres
-      // rechaza el insert duplicado con el codigo 23505 — eso no es un
-      // error real para el usuario, ya estaba anotado igual (o, en el
-      // caso de una renovacion, es lo esperado si la suscripcion vieja
-      // en realidad seguia viva).
-      if (error && error.code !== "23505") throw new Error(error.message);
+      // La funcion valida el torneo, el endpoint y las claves. Si la
+      // misma suscripcion ya existia, la toma como exito (idempotente).
+      if (error) throw new Error(error.message);
       markPairSubscribed(pairId);
       btnEl.outerHTML = `<button class="sub-check" title="Ya estás anotado para avisos de ${escapeHtml(label)} — tocá para renovar la suscripción" onclick="subscribeToPair('${pairId}', this, true)">✅</button>`;
       if (isRenewal) showAlert("Suscripción renovada.", { type: "success" });

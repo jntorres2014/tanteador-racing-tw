@@ -122,6 +122,21 @@
     setTimeout(() => window.location.href = "index.html", 900);
   }
 
+  function esServidorLocalSeguro(rawUrl) {
+    try {
+      const parsed = new URL(rawUrl);
+      if (!["http:", "https:"].includes(parsed.protocol) || parsed.username || parsed.password) return false;
+      const host = parsed.hostname.toLowerCase();
+      if (host === "localhost" || host === "::1" || host.endsWith(".local")) return true;
+      if (/^127\./.test(host) || /^10\./.test(host) || /^192\.168\./.test(host)) return true;
+      const match172 = host.match(/^172\.(\d{1,3})\./);
+      if (match172 && Number(match172[1]) >= 16 && Number(match172[1]) <= 31) return true;
+      return /^f[cd][0-9a-f]{2}:/i.test(host);
+    } catch (_error) {
+      return false;
+    }
+  }
+
   function usarLocal() {
     const url = document.getElementById("fUrl").value.trim();
     const anonKey = document.getElementById("fKey").value.trim();
@@ -129,8 +144,8 @@
       mostrarMsg("Completá la URL y la anon key (las da \"supabase status\" en la notebook).", "err");
       return;
     }
-    if (!/^https?:\/\//i.test(url)) {
-      mostrarMsg("La URL tiene que empezar con http:// o https://", "err");
+    if (!esServidorLocalSeguro(url)) {
+      mostrarMsg("Usá una URL de la red local (localhost, 127.x, 10.x, 172.16–31.x o 192.168.x), sin usuario ni contraseña.", "err");
       return;
     }
     localStorage.setItem("configServidor", JSON.stringify({ modo: "local", url, anonKey }));

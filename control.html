@@ -316,7 +316,7 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
 <script src="supabase-config.js"></script>
 <script src="auth.js"></script>
 <script>
@@ -460,9 +460,23 @@
     render();
     if (isLocalMode) {
       localStorage.setItem(LOCAL_KEY, JSON.stringify(currentState));
-      return;
+      return true;
     }
-    await client.from("matches").update(patch).eq("id", matchId);
+
+    const { error } = await client.from("matches").update(patch).eq("id", matchId);
+    if (!error) return true;
+
+    console.error("No se pudo guardar el partido:", error);
+    setConnStatus(false);
+    window.alert("No se pudo guardar el cambio. Se volverá a cargar el último estado confirmado.");
+
+    const { data: confirmed } = await client.from("matches").select("*").eq("id", matchId).single();
+    if (confirmed) {
+      currentState = confirmed;
+      render();
+      renderLive();
+    }
+    return false;
   }
 
   function changeScore(team, delta) {
@@ -618,17 +632,13 @@
       window.location.href = "index.html";
       return;
     }
-    // Usa finalize_match() cuando existe: ademas de guardar el
-    // resultado, resuelve los cruces "Ganador Partido N" que
-    // dependan de este partido (si es un partido de torneo) y deja
-    // registro en auditoria. Si la funcion todavia no esta creada en
-    // este proyecto de Supabase (falta correr db/005-finalize-match.sql),
-    // se cae al guardado directo de siempre para no dejar al usuario
-    // sin poder finalizar.
+    // La funcion transaccional valida que el usuario sea administrador
+    // o el arbitro activo asignado, resuelve cruces y deja auditoria.
     const { error } = await client.rpc("finalize_match", { p_match_id: matchId });
     if (error) {
-      console.warn("finalize_match no disponible, uso el guardado directo:", error.message || error);
-      await writeState({ is_finished: true, is_live: false });
+      console.error("No se pudo finalizar el partido:", error);
+      window.alert("No se pudo finalizar el partido: " + (error.message || "permiso denegado"));
+      return;
     }
     window.location.href = "index.html";
   }
